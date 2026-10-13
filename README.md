@@ -2,7 +2,7 @@
 
 **An Aladdin-inspired portfolio risk and goal-planning platform for Indian investors, with an AI assistant.**
 
-> Status: in development. This README is updated as each phase is completed.
+
 
 ## What it will do
 
