@@ -41,6 +41,20 @@ Python, FastAPI, PostgreSQL (pgvector), Redis, Next.js, TypeScript, Docker, GitH
 
 
 
+## Development
+
+Requires Python 3.12. On Windows, run these in PowerShell from the repo root (`make <target>` does the same thing elsewhere):
+
+| Make target | PowerShell equivalent |
+|---|---|
+| `make install` | `cd apps/api; python -m pip install -e ".[dev]"` |
+| `make lint` | `cd apps/api; ruff check .; ruff format --check .` |
+| `make test` | `cd apps/api; pytest` |
+| `make api` | `cd apps/api; uvicorn app.main:app --reload` |
+| `make infra-up` | `docker compose up -d postgres redis` |
+
+Copy `.env.example` to `.env` before running the API or Docker services.
+
 ## Disclaimer
 
 For educational and informational purposes only. Not investment advice.
