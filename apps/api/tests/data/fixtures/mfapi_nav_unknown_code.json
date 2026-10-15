@@ -1,0 +1,13 @@
+{
+  "meta": {
+    "fund_house": "",
+    "scheme_type": "",
+    "scheme_category": "",
+    "scheme_code": 0,
+    "scheme_name": "",
+    "isin_growth": null,
+    "isin_div_reinvestment": null
+  },
+  "data": [],
+  "status": "SUCCESS"
+}

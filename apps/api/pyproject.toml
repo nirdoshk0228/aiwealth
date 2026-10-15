@@ -11,12 +11,17 @@ dependencies = [
     "fastapi",
     "uvicorn[standard]",
     "pydantic-settings",
+    # Phase 2 data layer
+    "httpx",       # HTTP client for mfapi.in (timeouts; MockTransport for offline tests)
+    "numpy",
+    "pandas",      # time-series alignment and returns
+    "pyarrow",     # Parquet cache
+    "yfinance",    # NSE stocks (.NS) and Nifty 50 (^NSEI)
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "httpx",
     "ruff",
 ]
 

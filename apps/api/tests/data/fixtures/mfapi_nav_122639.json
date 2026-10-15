@@ -1,0 +1,54 @@
+{
+  "meta": {
+    "fund_house": "PPFAS Mutual Fund",
+    "scheme_type": "Open Ended Schemes",
+    "scheme_category": "Equity Scheme - Flexi Cap Fund",
+    "scheme_code": 122639,
+    "scheme_name": "Parag Parikh Flexi Cap Fund - Direct Plan - Growth",
+    "isin_growth": "INF879O01027",
+    "isin_div_reinvestment": null
+  },
+  "data": [
+    {
+      "date": "14-10-2026",
+      "nav": "89.35980"
+    },
+    {
+      "date": "13-10-2026",
+      "nav": "89.58410"
+    },
+    {
+      "date": "12-10-2026",
+      "nav": "88.55470"
+    },
+    {
+      "date": "09-10-2026",
+      "nav": "88.92580"
+    },
+    {
+      "date": "08-10-2026",
+      "nav": "87.65550"
+    },
+    {
+      "date": "07-10-2026",
+      "nav": "88.83890"
+    },
+    {
+      "date": "06-10-2026",
+      "nav": "88.99700"
+    },
+    {
+      "date": "05-10-2026",
+      "nav": "88.76200"
+    },
+    {
+      "date": "01-10-2026",
+      "nav": "88.25690"
+    },
+    {
+      "date": "30-09-2026",
+      "nav": "88.83550"
+    }
+  ],
+  "status": "SUCCESS"
+}
