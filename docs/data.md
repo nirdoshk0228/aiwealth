@@ -25,9 +25,12 @@ and the Nifty 50 benchmark, selected and verified on 2026-10-16 to 2026-10-21:
   code or a renamed scheme).
 - **Stocks**: 20 current Nifty 50 constituents spread across 12 NSE industries (at most 4 per
   industry), not the top 20 by weight. Name, industry and ISIN match the official niftyindices.com
-  list exactly. Big daily moves were checked against known events. Two moves (ITC 2015-03-02,
-  TITAN 2017-11-06) come with 4-10x volume and are believed to be real, but have not been
-  verified against the NSE bhavcopy.
+  list exactly. Big daily moves were checked against known events. TITAN +18.8% on 2017-11-06
+  (on 10x normal volume) is believed to be real but has not been verified against the NSE
+  bhavcopy.
+- **ITC → NESTLEIND swap**: ITC was in the approved list but was removed because Yahoo does not
+  adjust its 2025-01-06 ITC Hotels demerger (evidence in
+  [Are prices dividend-adjusted?](#are-prices-dividend-adjusted)). NESTLEIND keeps FMCG at 2 stocks.
 - **Gold FoF check**: Nippon India Gold Savings fell 9.9% on 2026-02-02 (vs. 2026-01-30). HDFC
   Gold ETF FoF (−10.8%) and SBI Gold (−8.5%) fell the same day, so the move is real and the fund
   was kept.
@@ -42,8 +45,9 @@ mis-applied split and bonus adjustments, stale prices repeated across days, and 
 hard to detect automatically and would distort volatility, correlations and VaR backtests. A
 2015+ window still gives more than 10 years (about 2,900 trading days) of daily data, which is
 enough for risk estimation and backtesting. Pre-2015 Yahoo data is also **not stable between
-downloads**: two downloads of NESTLEIND minutes apart contained 1,719 and 833 placeholder bars.
-The 2015+ part was identical across downloads (2,910-2,911 rows per stock).
+downloads**: phantom-bar totals for the same stock change from one download to the next
+(NESTLEIND 1,719 / 833 / 1,719; TCS 309 / 310 / 22). The 2015+ part was identical in every
+download (2,910–2,911 rows per stock, the same phantom dates).
 
 The cache stores the full history as downloaded. The 2015 cut-off is applied when building
 the analytics dataset, so it can be revisited without re-downloading.
@@ -77,7 +81,11 @@ unadjusted demerger appears as a residual drop, not as the raw return:
 
 ITC was replaced by NESTLEIND (FMCG, official Nifty 50 list). If kept, ITC's unadjusted demerger
 would add a fake loss of about 3–4% on one day, which is enough to distort its VaR, drawdown and
-beta. Only demergers known in advance were checked. An unadjusted spin-off in another stock would
+beta. NESTLEIND was checked the same way before it was added: 2,911 rows since 2015, its 1:10 split
+and 1:1 bonus adjusted, no demerger, and only the 2 market-wide phantom dates since 2015. Its
+largest moves since 2015 match events (COVID 2020, the Maggi ban on 2015-06-03). Its −7.8% on
+2026-10-15 opened at the prior close and fell during the session, so it is a real move and not a
+missed corporate action. Only demergers known in advance were checked. An unadjusted spin-off in another stock would
 show up as a large one-day residual against the Nifty with no corporate action recorded, so
 this remains a known limitation.
 
@@ -141,7 +149,10 @@ data/raw/                      (gitignored, about 3 MB for 36 assets)
 Why phantom bars are dropped rather than kept: on 2025-03-18 keeping them would give every
 stock a 0% return on a +1.45% market day, which would bias betas and correlations down. With
 them dropped, that day's move goes into the next day's return. Phantom bars are mostly pre-2015
-(about 30-300 per stock, plus NESTLEIND's illiquid early years). Since 2015 there are 4 dates.
+(roughly 10–1,700 per stock, and the count changes between downloads). Since 2015 there are 4
+dates in total: 2025-03-18 and 2026-01-15 for all 20 stocks, plus MARUTI 2015-08-12 and M&M
+2025-09-08. That is 2 per stock (3 for MARUTI and M&M), and the count is the same in every
+download.
 
 ## TODO (step d)
 - Calendar and alignment: master calendar = dates where at least 50% of stocks have a valid bar
