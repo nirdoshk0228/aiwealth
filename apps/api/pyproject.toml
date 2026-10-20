@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "aiwealth-api"
 version = "0.1.0"
 description = "AIWealth API: portfolio risk analytics, optimization, goal planning and AI assistant."
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi",
     "uvicorn[standard]",

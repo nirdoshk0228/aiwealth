@@ -3,14 +3,11 @@
 import logging
 import time
 from collections.abc import Callable
-from typing import TypeVar
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
 
-
-def call_with_retry(  # noqa: UP047 - TypeVar keeps Python 3.11 support (requires-python)
+def call_with_retry[T](
     fn: Callable[[], T],
     *,
     is_retryable: Callable[[Exception], bool],
