@@ -3,7 +3,7 @@
 
 API_DIR := apps/api
 
-.PHONY: install lint format test api infra-up infra-down eval
+.PHONY: install lint format test api seed infra-up infra-down eval
 
 install:
 	cd $(API_DIR) && python -m pip install -e ".[dev]"
@@ -19,6 +19,9 @@ test:
 
 api:
 	cd $(API_DIR) && uvicorn app.main:app --reload
+
+seed:
+	python scripts/seed_data.py
 
 infra-up:
 	docker compose up -d postgres redis

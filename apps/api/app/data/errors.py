@@ -15,3 +15,11 @@ class NotFoundError(ProviderError):
 
 class BadResponseError(ProviderError):
     """The source answered, but the payload was malformed or unusable."""
+
+
+class NotInCacheError(LookupError):
+    """The requested series has not been seeded into the cache.
+
+    Deliberately not a ProviderError: reading the cache never falls back to the network.
+    Run scripts/seed_data.py to populate it.
+    """

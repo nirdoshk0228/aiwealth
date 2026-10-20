@@ -1,0 +1,50 @@
+{
+  "as_of": "2026-10-21",
+  "data_start": "2015-01-01",
+  "benchmark": { "symbol": "^NSEI", "name": "Nifty 50" },
+  "funds": [
+    { "code": "120586", "category": "large_cap", "amc": "ICICI Prudential", "name": "ICICI Prudential Large Cap Fund (erstwhile Bluechip Fund) - Direct Plan - Growth" },
+    { "code": "118825", "category": "large_cap", "amc": "Mirae Asset", "name": "Mirae Asset Large Cap Fund - Direct Plan - Growth" },
+    { "code": "122639", "category": "flexi_cap", "amc": "PPFAS", "name": "Parag Parikh Flexi Cap Fund - Direct Plan - Growth" },
+    { "code": "118955", "category": "flexi_cap", "amc": "HDFC", "name": "HDFC Flexi Cap Fund - Direct Plan - Growth Option" },
+    { "code": "120166", "category": "flexi_cap", "amc": "Kotak Mahindra", "name": "Kotak Flexi Cap Fund - Direct Plan - Growth" },
+    { "code": "118989", "category": "mid_cap", "amc": "HDFC", "name": "HDFC Mid Cap Fund - Direct Plan - Growth Option" },
+    { "code": "119775", "category": "mid_cap", "amc": "Kotak Mahindra", "name": "Kotak Mid Cap Fund - Direct Plan - Growth" },
+    { "code": "118778", "category": "small_cap", "amc": "Nippon India", "name": "Nippon India Small Cap Fund - Direct Plan - Growth Option" },
+    { "code": "125497", "category": "small_cap", "amc": "SBI", "name": "SBI SMALL CAP FUND - Direct Plan - Growth" },
+    { "code": "119533", "category": "debt_corporate_bond", "amc": "Aditya Birla Sun Life", "name": "Aditya Birla Sun Life Corporate Bond Fund - Direct Plan - GROWTH" },
+    { "code": "119707", "category": "debt_gilt", "amc": "SBI", "name": "SBI GILT FUND - Direct Plan - Growth" },
+    { "code": "120389", "category": "debt_liquid", "amc": "Axis", "name": "Axis Liquid Fund - Direct Plan - Growth Option" },
+    { "code": "118663", "category": "gold", "amc": "Nippon India", "name": "Nippon India Gold Savings Fund - Direct Plan - Growth Option" },
+    { "code": "120377", "category": "hybrid_balanced_advantage", "amc": "ICICI Prudential", "name": "ICICI Prudential Balanced Advantage Fund - Direct Plan - Growth" },
+    { "code": "118968", "category": "hybrid_balanced_advantage", "amc": "HDFC", "name": "HDFC Balanced Advantage Fund - Direct Plan - Growth Option" }
+  ],
+  "stocks": [
+    { "symbol": "HDFCBANK", "industry": "Financial Services", "isin": "INE040A01034", "name": "HDFC Bank Ltd." },
+    { "symbol": "ICICIBANK", "industry": "Financial Services", "isin": "INE090A01021", "name": "ICICI Bank Ltd." },
+    { "symbol": "SBIN", "industry": "Financial Services", "isin": "INE062A01020", "name": "State Bank of India" },
+    { "symbol": "BAJFINANCE", "industry": "Financial Services", "isin": "INE296A01032", "name": "Bajaj Finance Ltd." },
+    { "symbol": "TCS", "industry": "Information Technology", "isin": "INE467B01029", "name": "Tata Consultancy Services Ltd." },
+    { "symbol": "INFY", "industry": "Information Technology", "isin": "INE009A01021", "name": "Infosys Ltd." },
+    { "symbol": "RELIANCE", "industry": "Oil Gas & Consumable Fuels", "isin": "INE002A01018", "name": "Reliance Industries Ltd." },
+    { "symbol": "NTPC", "industry": "Power", "isin": "INE733E01010", "name": "NTPC Ltd." },
+    { "symbol": "HINDUNILVR", "industry": "Fast Moving Consumer Goods", "isin": "INE030A01027", "name": "Hindustan Unilever Ltd." },
+    { "symbol": "NESTLEIND", "industry": "Fast Moving Consumer Goods", "isin": "INE239A01024", "name": "Nestle India Ltd." },
+    { "symbol": "MARUTI", "industry": "Automobile and Auto Components", "isin": "INE585B01010", "name": "Maruti Suzuki India Ltd." },
+    { "symbol": "M&M", "industry": "Automobile and Auto Components", "isin": "INE101A01026", "name": "Mahindra & Mahindra Ltd." },
+    { "symbol": "SUNPHARMA", "industry": "Healthcare", "isin": "INE044A01036", "name": "Sun Pharmaceutical Industries Ltd." },
+    { "symbol": "DRREDDY", "industry": "Healthcare", "isin": "INE089A01031", "name": "Dr. Reddy's Laboratories Ltd." },
+    { "symbol": "TATASTEEL", "industry": "Metals & Mining", "isin": "INE081A01020", "name": "Tata Steel Ltd." },
+    { "symbol": "HINDALCO", "industry": "Metals & Mining", "isin": "INE038A01020", "name": "Hindalco Industries Ltd." },
+    { "symbol": "BHARTIARTL", "industry": "Telecommunication", "isin": "INE397D01024", "name": "Bharti Airtel Ltd." },
+    { "symbol": "LT", "industry": "Construction", "isin": "INE018A01030", "name": "Larsen & Toubro Ltd." },
+    { "symbol": "ULTRACEMCO", "industry": "Construction Materials", "isin": "INE481G01011", "name": "UltraTech Cement Ltd." },
+    { "symbol": "TITAN", "industry": "Consumer Durables", "isin": "INE280A01028", "name": "Titan Company Ltd." }
+  ],
+  "notes": [
+    "Stocks are current Nifty 50 constituents (official niftyindices.com list, checked 2026-10-16): survivorship bias, see docs/data.md.",
+    "ITC excluded: Yahoo does not adjust the ITC Hotels demerger (2025-01-06), replaced by NESTLEIND.",
+    "TMPV excluded: the 2025 Tata Motors demerger breaks its price history.",
+    "Parag Parikh Liquid (143269) not used: history starts 2018-05 and would shorten the common window; Axis Liquid used instead."
+  ]
+}

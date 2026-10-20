@@ -62,30 +62,72 @@ def make_yfinance_fetcher(timeout: float = 30.0) -> HistoryFetcher:
     return fetch
 
 
-def parse_history_frame(df: pd.DataFrame | None, ticker: str) -> tuple[pd.Series, list[str]]:
+_OHLCV = ("Open", "High", "Low", "Close", "Volume")
+
+
+def drop_phantom_bars(df: pd.DataFrame, label: str) -> tuple[pd.DataFrame, list[str]]:
+    """Remove placeholder bars Yahoo inserts on some exchange holidays.
+
+    A phantom bar has Volume == 0 and Open == High == Low == Close (in practice all equal to
+    the previous close), e.g. every NSE stock on 2026-01-15. Keeping it would add a fake 0%
+    return and a fake trading day. Equality is exact on purpose: a genuinely illiquid but
+    traded day has some volume or some price range and is kept.
+
+    Only for equities: index volume on Yahoo is unreliable (often 0), so the rule would
+    misfire on ^NSEI.
+    """
+    if not set(_OHLCV) <= set(df.columns):
+        return df, [f"{label}: OHLCV columns missing; phantom-bar check skipped"]
+    phantom = (
+        (df["Volume"] == 0)
+        & (df["Open"] == df["High"])
+        & (df["High"] == df["Low"])
+        & (df["Low"] == df["Close"])
+    )
+    if not phantom.any():
+        return df, []
+    dates = [str(d.date()) for d in pd.DatetimeIndex(df.index[phantom])]
+    shown = ", ".join(dates[:5]) + (", ..." if len(dates) > 5 else "")
+    return df[~phantom], [
+        f"{label}: dropped {len(dates)} phantom bar(s) (zero volume, flat OHLC): {shown}"
+    ]
+
+
+def _flatten_columns(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """Turn yf.download's (field, ticker) MultiIndex into flat field columns."""
+    if not isinstance(df.columns, pd.MultiIndex):
+        return df
+    if ticker in df.columns.get_level_values(1):
+        return df.xs(ticker, axis=1, level=1)
+    return df.droplevel(1, axis=1)
+
+
+def parse_history_frame(
+    df: pd.DataFrame | None, ticker: str, *, drop_phantom: bool = False
+) -> tuple[pd.Series, list[str]]:
     """Extract the adjusted Close series from a yfinance history frame.
 
     Accepts both flat columns (Ticker.history) and the (field, ticker) MultiIndex that
     yf.download produces, so a future switch of fetch method does not break parsing.
+    `drop_phantom` applies `drop_phantom_bars` first (use for equities only).
     """
     if df is None or df.empty:
         raise NotFoundError(f"yfinance {ticker}: empty history")
-    if isinstance(df.columns, pd.MultiIndex):
-        if ("Close", ticker) in df.columns:
-            close = df[("Close", ticker)]
-        elif "Close" in df.columns.get_level_values(0):
-            close = df["Close"].iloc[:, 0]
-        else:
-            raise BadResponseError(f"yfinance {ticker}: no Close column")
-    elif "Close" in df.columns:
-        close = df["Close"]
-    else:
+    df = _flatten_columns(df, ticker)
+    if "Close" not in df.columns:
         raise BadResponseError(f"yfinance {ticker}: no Close column in {list(df.columns)}")
     try:
-        pd.DatetimeIndex(close.index)
+        pd.DatetimeIndex(df.index)
     except (TypeError, ValueError) as exc:
         raise BadResponseError(f"yfinance {ticker}: index is not dates") from exc
-    return clean_price_series(close, label=f"yfinance {ticker}")
+
+    warnings: list[str] = []
+    if drop_phantom:
+        df, warnings = drop_phantom_bars(df, label=f"yfinance {ticker}")
+        if df.empty:
+            raise BadResponseError(f"yfinance {ticker}: only phantom bars")
+    series, clean_warnings = clean_price_series(df["Close"], label=f"yfinance {ticker}")
+    return series, warnings + clean_warnings
 
 
 def _http_status(exc: Exception) -> int | None:
@@ -149,7 +191,7 @@ class YFinanceProvider:
                 f"yfinance {ticker}: {type(exc).__name__} after {self._max_attempts} attempts"
             ) from exc
 
-        series, warnings = parse_history_frame(df, ticker)
+        series, warnings = parse_history_frame(df, ticker, drop_phantom=asset.kind == "equity")
 
         # During (or before the close of) a trading session Yahoo returns a bar for today
         # holding the live price. It is not a close, so caching it would corrupt the last

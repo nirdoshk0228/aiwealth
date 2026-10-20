@@ -211,3 +211,55 @@ def test_only_todays_bar_raises_not_found() -> None:
     fetch, _ = stub_fetcher({"RELIANCE.NS": frame})
     with pytest.raises(NotFoundError, match="no completed sessions"):
         YFinanceProvider(fetch, today=lambda: date(2026, 9, 15)).fetch_history(RELIANCE)
+
+
+def _with_phantom_on_14_sep(frame: pd.DataFrame) -> pd.DataFrame:
+    """Insert a Yahoo-style phantom bar on 14 Sep 2026: flat OHLC = previous close, volume 0."""
+    prev_close = frame.loc[frame.index[-2], "Close"]  # 11 Sep close
+    ts = pd.Timestamp("2026-09-14", tz="Asia/Kolkata")
+    row = pd.DataFrame(
+        {
+            "Open": prev_close,
+            "High": prev_close,
+            "Low": prev_close,
+            "Close": prev_close,
+            "Volume": 0,
+            "Dividends": 0.0,
+            "Stock Splits": 0.0,
+        },
+        index=pd.DatetimeIndex([ts], name=frame.index.name),
+    )
+    return pd.concat([frame, row]).sort_index()
+
+
+def test_phantom_bar_dropped_for_equities_with_warning() -> None:
+    frame = _with_phantom_on_14_sep(load_frame("yf_history_RELIANCE.NS.csv"))
+    fetch, _ = stub_fetcher({"RELIANCE.NS": frame})
+    hist = YFinanceProvider(fetch).fetch_history(RELIANCE)
+    assert pd.Timestamp("2026-09-14") not in hist.prices.index
+    assert len(hist.prices) == 10
+    assert any("1 phantom bar(s)" in w and "2026-09-14" in w for w in hist.warnings)
+
+
+def test_phantom_rule_not_applied_to_index() -> None:
+    frame = _with_phantom_on_14_sep(load_frame("yf_history_NSEI.csv"))
+    fetch, _ = stub_fetcher({"^NSEI": frame})
+    hist = YFinanceProvider(fetch).fetch_history(NIFTY)
+    assert pd.Timestamp("2026-09-14") in hist.prices.index
+    assert not any("phantom" in w for w in hist.warnings)
+
+
+def test_zero_volume_bar_with_a_price_range_is_kept() -> None:
+    # Zero volume alone is not enough: a bar that moved is not a placeholder.
+    frame = _with_phantom_on_14_sep(load_frame("yf_history_RELIANCE.NS.csv"))
+    frame.loc[pd.Timestamp("2026-09-14", tz="Asia/Kolkata"), "High"] += 1.0
+    s, warnings = parse_history_frame(frame, "RELIANCE.NS", drop_phantom=True)
+    assert pd.Timestamp("2026-09-14") in s.index
+    assert warnings == []
+
+
+def test_phantom_check_skipped_without_ohlcv() -> None:
+    frame = load_frame("yf_history_RELIANCE.NS.csv")[["Close"]]
+    s, warnings = parse_history_frame(frame, "RELIANCE.NS", drop_phantom=True)
+    assert len(s) == 10
+    assert warnings == ["yfinance RELIANCE.NS: OHLCV columns missing; phantom-bar check skipped"]

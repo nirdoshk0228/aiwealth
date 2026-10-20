@@ -31,6 +31,17 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_v1_prefix: str = "/api/v1"
 
+    # Data layer: universe.json lives here; the Parquet cache in <data_dir>/raw (gitignored).
+    data_dir: Path = REPO_ROOT / "data"
+
+    @property
+    def raw_data_dir(self) -> Path:
+        return self.data_dir / "raw"
+
+    @property
+    def universe_path(self) -> Path:
+        return self.data_dir / "universe.json"
+
 
 @lru_cache
 def get_settings() -> Settings:
