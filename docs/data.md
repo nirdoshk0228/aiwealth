@@ -1,7 +1,5 @@
 # Data: sources, conventions and limitations
 
-> Work in progress (Phase 2). The TODO section is completed with the returns-cleaning step.
-
 ## Sources
 
 | Asset type | Source | Price used |
@@ -154,10 +152,80 @@ dates in total: 2025-03-18 and 2026-01-15 for all 20 stocks, plus MARUTI 2015-08
 2025-09-08. That is 2 per stock (3 for MARUTI and M&M), and the count is the same in every
 download.
 
-## TODO (step d)
-- Calendar and alignment: master calendar = dates where at least 50% of stocks have a valid bar
-  (^NSEI kept as benchmark only; report days that differ from it, e.g. 2025-03-18 and the
-  missing 1 January sessions), forward-fill limit (3 days), minimum history (756 obs), common
-  start/end trimming with the asset that sets each bound. Covers holidays, Muhurat sessions and
-  debt-market holidays.
-- NAV timing vs. market close (gold FoFs correlate only about 0.89 with each other)
+## Calendar and alignment
+
+`app/engine/returns.py::align_prices` turns the cached series into one NaN-free price table.
+It is pure pandas (no I/O, no `app.data` imports, enforced by `tests/test_architecture.py`).
+`app/services/market_data.py::load_aligned_prices` loads the cache and calls it. Every step is
+recorded in an `AlignmentReport`, and `report.summary()` prints it.
+
+1. **Start:** everything before `universe.data_start` (2015-01-01) is cut.
+2. **Master calendar:** dates where **at least 50% of the 20 stocks** have a bar (after phantom
+   bars were dropped at download). The denominator is fixed at 20, so an incomplete latest
+   session cannot pass. `^NSEI` is an ordinary column and never adds or removes days.
+   Weekend sessions that pass the rule (Muhurat, Saturday budget day) are kept and listed.
+3. **Off-calendar prices are discarded and counted**, e.g. liquid-fund weekend NAVs and
+   31 March NAVs on holidays. The next calendar price already includes the accrual.
+4. **Assets with fewer than 756 real prices** (about 3 years) on the calendar are dropped before
+   the window is computed, so a dropped asset cannot shrink the data. The benchmark is mandatory.
+5. **Common window:** from the latest first price to the earliest last price, with the asset(s)
+   that set each bound reported.
+6. **Forward-fill:** gaps of **at most 3 consecutive calendar days** are filled with the last
+   real price, which gives a 0% return followed by a catch-up return. Longer gaps are not filled
+   at all, and nothing is filled past an asset's last real price.
+7. **Rows still containing a gap** (> 3 days in some asset) are dropped for every asset, so the
+   next return spans two sessions for all of them. If one asset causes more than 1% of rows to
+   be dropped, the report shows a warning.
+
+### Result on the real cache (seeded 2026-10-20)
+
+| | |
+|---|---|
+| Common window | 2015-01-02 → 2026-10-19, **2,910 rows × 36 assets**, no asset dropped, no gap rows |
+| Start set by | `^NSEI` (no bar on 2015-01-01, a real session; nothing is filled before a first price) |
+| End set by | all 36 assets (all end 2026-10-19) |
+| On our calendar, not in `^NSEI` (7) | 2015-04-15, 2016-01-01, 2016-08-12, 2018-01-01, 2019-01-01, 2019-10-27 (Sun), 2020-11-14 (Sat) |
+| In `^NSEI`, not on our calendar (1) | 2025-03-18 (every stock has a phantom bar; see Yahoo quirks) |
+| Weekend sessions kept (3) | 2019-10-27, 2020-11-14 (Muhurat), 2025-02-01 (budget Saturday) |
+| Forward-filled values | debt funds 64 each, liquid fund 44, equity/hybrid/gold funds 11–12, `^NSEI` 7, MARUTI 1, M&M 1, other stocks 0 |
+| Off-calendar prices discarded | liquid fund 952 (weekends and holidays), other funds 6–15, `^NSEI` 1 (2025-03-18) |
+
+Where the fills come from: debt funds miss bank and RBI holidays when stocks trade. Equity funds
+publish no NAV on Muhurat sessions and the 3 weekend sessions, and also not on 2023-09-28 and
+2025-09-29 (stocks traded on both days; the reason is not verified). The liquid fund's 44 fills
+are isolated missing days in the mfapi.in data (2018–2025), each worth about 0.02% of accrual.
+
+### Limitation: filled benchmark days
+
+`^NSEI` is missing 7 real sessions (table above). On each one, the benchmark gets a filled
+**0% return while stocks and funds move**, and the next day carries a **two-day return**. That
+is 7 days out of 2,910 (0.24%). It slightly distorts benchmark-relative statistics (beta,
+correlation, tracking error, relative VaR) on those days, and it can make a single day's
+relative performance look large. Total returns over longer periods are unaffected. Fixing it
+would need a second source for the index.
+
+Similarly, a fund's filled day on a Muhurat or weekend session is a 0% return and the move
+lands on the next NAV. Funds publish no NAV on those days, so there is no real price to use.
+
+## Return conventions
+
+- **Simple returns** everywhere: `r_t = P_t / P_{t-1} − 1` (decimal). `simple_returns` drops
+  the first row and refuses NaN or non-positive prices. Annualisation uses 252 trading days.
+- **Why simple returns:** they aggregate exactly *across assets*. A portfolio with weights `w_i`
+  at the start of the day returns `R_p = Σ w_i r_i`, so portfolio P&L (`value × R_p`) and VaR as
+  a rupee loss follow directly. Log returns do not: `ln(1 + R_p) ≠ Σ w_i ln(1 + r_i)` (a test
+  checks this with numbers: Rs 1,000 portfolio, simple 2.00% vs weighted log 1.50%).
+- **`log_returns`** (`ln(P_t / P_{t-1})`) is provided only where adding up returns *over time*
+  matters, e.g. calibrating a GBM for Monte Carlo goal planning. It is not for portfolios.
+- A "day" is a calendar row. Where a session was skipped (e.g. 2025-03-18), the return covers
+  two sessions, identically for all assets.
+
+## Other known limitations
+
+- **NAV timing:** the three gold FoFs correlate only about 0.89 with each other on daily
+  returns, although they hold the same asset. The likely cause is differences in when the
+  underlying ETF prices are struck (not verified). Daily correlations involving FoFs are
+  therefore understated, and multi-day horizons are less affected.
+- **Fund NAV vs. stock close:** fund NAVs are struck at the end of the day from closing
+  prices, so they line up with stock closes for domestic equity funds. Gold and overseas
+  holdings may not.

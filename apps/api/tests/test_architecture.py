@@ -61,9 +61,10 @@ def violations(files: list[Path], forbidden: tuple[str, ...]) -> list[str]:
     ]
 
 
-def test_engine_has_no_ai_data_fetching_or_network_imports() -> None:
+def test_engine_has_no_ai_data_or_network_imports() -> None:
+    # The engine works on pandas objects only; loading data is the service layer's job.
     engine_files = [f for f in ALL_MODULES if matches(module_name(f), ("app.engine",))]
-    forbidden = ("app.ai", "app.data.providers", "app.data.seed", *NETWORK_LIBS)
+    forbidden = ("app.ai", "app.data", *NETWORK_LIBS)
     assert violations(engine_files, forbidden) == []
 
 
@@ -83,14 +84,13 @@ def test_api_layer_does_not_import_network_libraries() -> None:
         ("from app.ai import agent", "app.ai"),
         ("import yfinance as yf", "yfinance"),
         ("from ..data.providers import mfapi", "app.data.providers"),
+        ("from app.data.repository import ParquetRepository", "app.data"),
     ],
 )
 def test_scanner_detects_forbidden_imports(tmp_path: Path, source: str, expected: str) -> None:
-    # Guard against a scanner bug silently passing everything: plant a fake engine module.
-    fake = APP_DIR / "engine" / "_planted_for_test.py"
+    # Guard against a scanner bug silently passing everything: scan a fake engine module
+    # (written to tmp_path, never into the source tree).
+    fake = tmp_path / "planted.py"
     fake.write_text(source + "\n", encoding="utf-8")
-    try:
-        found = violations([fake], ("app.ai", "app.data.providers", *NETWORK_LIBS))
-    finally:
-        fake.unlink()
-    assert any(expected in v for v in found)
+    found = imported_modules(fake, mod="app.engine.planted")
+    assert any(matches(name, (expected,)) for name in found)
