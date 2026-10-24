@@ -114,7 +114,10 @@ also shows α = rf exactly, because no borrowing cost is charged.
 Not set in the engine. Candidates: the 91-day T-bill yield (RBI auction cut-off, FBIL
 benchmark, or the OECD/FRED monthly series `INDIR3TIB01STM`) or FBIL Overnight MIBOR (often
 quoted on AMC factsheets, check the factsheet). Use the **average over the measurement window**,
-not today's rate. A time-varying rf series is a possible later extension.
+not today's rate. A time-varying rf series is a possible later extension. The factor
+regression already uses one: the daily T-bill series from the IIMA factor file (see
+[Factor regression](#factor-regression-appenginefactorsregressionpy)), so its alpha and
+the Sharpe/Sortino ratios here are measured against different risk-free rates.
 
 ### Data limitations that affect these metrics
 
@@ -247,3 +250,96 @@ EW20 = equal-weight 20 stocks. The rate is right at 95% for every method; normal
 under-covers at 99% (fat tails), while historical VaR covers. Independence is rejected almost
 everywhere, driven by March 2020 (7–8 breaches at 99%) and March 2026 (4–5). All 99% runs land in
 yellow or green over the last 250 days, which include March 2026.
+
+## Factor regression (`app/engine/factors/regression.py`)
+
+Carhart four-factor regression of a portfolio's or an asset's excess return on the IIMA Indian
+factors (source, units and calendar alignment: docs/data.md, "Factor data"). Pure numpy/pandas.
+`factor_regression` takes one return Series; `factor_regression_by_asset` takes a DataFrame and
+returns one row per column.
+
+### Conventions
+
+| Item | Convention |
+|---|---|
+| Model | `r_t − RF_t = α + β_M MKT_RF_t + β_S SMB_t + β_H HML_t + β_W WML_t + ε_t`, daily simple returns in decimals |
+| Data window | **only the rows with factor data**: 2,713 rows, 2015-01-05 → 2025-12-31 for release 2025-12. The 196 return rows from 2026-01-01 have no factors yet and are excluded. The caller passes `aligned.factors.dropna()` and the matching return rows |
+| Alignment | returns and factors must have **identical indexes**, no NaN, no inf. Nothing is re-aligned or dropped silently |
+| Risk-free rate | **the daily 91-day T-bill series from the factor file (`RF`), row by row.** Sharpe and Sortino in `metrics.py` use a **constant** annual rate supplied by the caller. The two can differ (RF averaged 5.8% a year over the regression window, while the constant is whatever the caller passes) |
+| Alpha | daily intercept, and `α_annual = 252 · α` (arithmetic, like Jensen's alpha in `metrics.py`; not compounded) |
+| Standard errors | Newey–West HAC, Bartlett kernel, lag `L = ⌊4 (n/100)^(2/9)⌋` (Newey & West 1994; **L = 8** for n = 2,713), small-sample factor `n/(n − p)` |
+| p-values | two-sided, standard normal (HAC inference is asymptotic). The t-stat and p-value are NaN if a standard error is exactly 0 |
+| Minimum history | **504 rows** (two years). Five parameters plus a long-run (HAC) variance with ~8 lags need far more rows than parameters. With one year, the HML and WML betas are unstable |
+| Collinearity | condition number of the design matrix after scaling each column to unit length (Belsley, Kuh & Welsch 1980): **raise above 1e6, warn above 30**. A constant factor raises with its own message. The real factors give 1.61 |
+
+### Formulas
+
+    X = [1, MKT_RF, SMB, HML, WML],  p = 5,  y = r − RF
+    b       = argmin ‖y − Xb‖²                      (np.linalg.lstsq)
+    e       = y − Xb
+    R²      = 1 − e'e / Σ(y − ȳ)²,     adj R² = 1 − (1 − R²)(n − 1)/(n − p)
+    resid σ = √(e'e/(n − p)) · √252
+    u_t     = e_t x_t
+    S       = Σ_t u_t u_t' + Σ_{l=1..L} (1 − l/(L+1)) Σ_{t>l} (u_t u_{t−l}' + u_{t−l} u_t')
+    V       = n/(n − p) · (X'X)⁻¹ S (X'X)⁻¹,    se = √diag V,    t = b / se
+
+**Why HAC.** Daily returns are heteroskedastic (volatility clusters) and fund NAVs are slightly
+autocorrelated. On the real data, the HAC standard errors of the betas are **1.4–3.4× the
+classical OLS ones** (EW 20 stocks: β_M 2.2×; EW 15 funds: β_M 3.4×). The alpha standard error
+barely changes (1.0–1.1×). The residuals' lag-1 autocorrelation is −0.002 (stocks) and 0.09
+(funds), so most of the correction comes from heteroskedasticity. Classical t-stats would
+overstate the betas' significance by that factor.
+
+**Lag 0 is White, not classical OLS.** With L = 0, V is White's HC1 estimator. It equals the
+classical `s²(X'X)⁻¹` only when `Σ e_t² x_t x_t' = (e'e/n) X'X`, e.g. when every residual has the
+same absolute value. The tests check both: lag-0 HAC against an independent HC1 sandwich on
+heteroskedastic data, and HC1 = classical on a constructed design with |e_t| constant.
+
+### Verification
+
+- **Unit tests** (`tests/engine/factors/test_regression.py`):
+  - noise-free data from known α and β is recovered to 1e-10;
+  - a 4-row, 2-regressor case worked out by hand (coefficients, R², adj R², residual
+    volatility, standard errors, t-stats);
+  - HAC at lags 1, 2 and 5 against a slow loop-by-loop reference;
+  - the lag-0 tests above, the lag rule, collinearity and all validation paths.
+- **Cross-check** (`scripts/crosscheck_factor_regression.py`): compared with statsmodels 0.15.0,
+  `OLS(...).fit(cov_type="HAC", cov_kwds={"maxlags": L, "use_correction": True})`, run in a
+  scratch virtualenv (statsmodels is not a project dependency). On the real EW-20 regression
+  and on synthetic heteroskedastic AR(1) data, the coefficients, standard errors, t-stats,
+  p-values, R² and residual volatility all agree to a relative 1e-13 or better.
+  - **statsmodels' default** HAC (`use_correction=False`) omits the n/(n − p) factor. Its
+    variances are exactly (n − p)/n times ours (0.99816 at n = 2,713).
+
+### Real-data results (release 2025-12, 2,713 rows 2015-01-05 → 2025-12-31, L = 8)
+
+| Portfolio | β MKT (t) | β SMB (t) | β HML (t) | β WML (t) | α annual (t) | R² | resid σ |
+|---|---|---|---|---|---|---|---|
+| `^NSEI` (price index) | 1.008 (48.1) | −0.211 (−15.4) | −0.108 (−7.6) | −0.068 (−4.5) | −1.2% (−0.67) | 0.862 | 6.0% |
+| EW 20 stocks | 0.991 (55.5) | −0.223 (−14.9) | −0.011 (−0.8) | −0.073 (−4.4) | 5.4% (3.05) | 0.874 | 5.8% |
+| EW 15 funds | 0.619 (44.1) | 0.049 (7.3) | 0.035 (4.5) | −0.023 (−3.2) | 3.0% (2.89) | 0.913 | 3.0% |
+| EW 9 equity funds | 0.887 (65.0) | 0.099 (9.1) | 0.046 (5.1) | −0.027 (−2.8) | 3.1% (2.22) | 0.922 | 4.1% |
+
+Equal-weight portfolios are rebalanced daily (`var.portfolio_returns`).
+
+### What the numbers mean, and what they do not
+
+- **MKT is a broad market, not the Nifty.** It is IIMA's value-weighted portfolio of all stocks
+  used to build the factors (mid and small caps included). So Nifty's β is ≈ 1 but its R² is
+  0.86, and large-cap portfolios load **negatively on SMB** (Nifty −0.21). Small-cap funds load
+  +0.41 to +0.47, mid-cap funds +0.20, large-cap funds −0.10 to −0.16.
+- **Price-index alpha.** `^NSEI` excludes dividends while the factors are total returns, so its
+  alpha is biased **down** by about the dividend yield (~1.2–1.5% a year). The −1.2% (t −0.67)
+  is consistent with zero once that is allowed for.
+- **The positive alphas are not evidence of skill.** EW 20 stocks show 5.4% (t 3.05), but the
+  stocks are today's Nifty constituents chosen in 2026 (look-ahead/survivorship bias,
+  docs/data.md). The funds are popular survivors, Direct plans, net of expenses.
+- **Non-equity assets.** For debt, liquid and gold funds, R² ≈ 0 and the "alpha" is simply
+  their return over the T-bill. The liquid fund's t-stat of 11.8 reflects a tiny but very
+  steady spread over RF, not skill. Report factor exposures only for equity-like assets.
+- **Factor correlations.** MKT and HML correlate 0.42 on daily data over the window (other pairs
+  |ρ| < 0.1). The condition number (1.6) shows this is not a numerical problem, but β_HML is
+  conditional on β_MKT, as in any multiple regression.
+- **Windows and stability.** The betas are averages over 2015–2025. Rolling regressions are a
+  possible extension. Two return rows (2019-02-14 and 2019-04-01) span two sessions, with the
+  factors compounded to match (docs/data.md).
