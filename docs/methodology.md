@@ -131,3 +131,50 @@ not today's rate. A time-varying rf series is a possible later extension.
   were picked in 2026, so historical α and IR of the equal-weight baskets are biased upward.
 - **Benchmark fit.** β, α, TE and IR against the Nifty are meaningless for debt, liquid and gold
   funds (R² near 0). Report them only for equity-like assets.
+
+## Risk attribution (`app/engine/risk/attribution.py`)
+
+### Conventions
+
+| Item | Convention |
+|---|---|
+| Input | simple daily returns DataFrame + weights (as `var.py`); fixed weights, `R_p = w'r` |
+| Covariance | sample covariance Σ̂ of daily returns (ddof = 1), the same estimate as `parametric_var` |
+| Units | volatility figures annualised (× √252); VaR/CVaR components are positive loss fractions with confidence and horizon, like `VaRResult` |
+| Order | per-asset results follow the order of `weights`; values do not depend on any ordering |
+| Zero portfolio volatility | contributions raise `ValueError` (undefined, not zero); `diversification_ratio` returns `None` |
+
+### Formulas (Euler decomposition)
+
+A risk measure with ρ(k·w) = k·ρ(w) satisfies ρ(w) = Σᵢ wᵢ ∂ρ/∂wᵢ, so components add up exactly.
+
+    σ_p        = √(w'Σ̂w)
+    marginalᵢ  = (Σ̂w)ᵢ / σ_p                  = ∂σ_p/∂wᵢ = cov(rᵢ, R_p)/σ_p
+    componentᵢ = wᵢ · marginalᵢ                Σᵢ componentᵢ = σ_p
+    percentᵢ   = componentᵢ / σ_p              Σᵢ percentᵢ = 1  (may be < 0 or > 1)
+    cVaRᵢ      = √h · wᵢ (z (Σ̂w)ᵢ/σ_p − μ̂ᵢ)               Σ = parametric VaR
+    cCVaRᵢ     = √h · wᵢ (φ(z)/α (Σ̂w)ᵢ/σ_p − μ̂ᵢ)          Σ = parametric CVaR
+    DR         = Σᵢ |wᵢ| σᵢ / σ_p              (≥ 1; Choueifaty's definition for long-only)
+    ratioᵢ     = percentᵢ / wᵢ = (Σ̂w)ᵢ / (w'Σ̂w) = β of asset i to the portfolio
+
+`risk_budget_report` lists weight vs `percent` (the risk share) per asset. An equal-risk-
+contribution portfolio has all shares equal to 1/n; that is the Phase 6 risk-parity target.
+`euler_contributions(cov, w)` is the array-level core the optimiser will call.
+
+### What the numbers mean, and what they do not
+
+- **Estimates, not facts.** They inherit every error in Σ̂. A different window, frequency or
+  covariance estimator (EWMA, shrinkage) gives different contributions.
+- **Marginal = local derivative.** It holds the other weights fixed and is valid only for small
+  changes. A real trade also sells something else, and its effect is the difference of two marginals.
+- **Negative components** belong to hedges (negative covariance with the portfolio). Shares can
+  exceed 100% for other assets. The sum is still exact.
+- **A component is not "risk removed by selling".** That is incremental risk, which needs
+  renormalised weights and differs from the component except for infinitesimal changes.
+- **Only parametric VaR/CVaR decompose in closed form.** For historical or Monte Carlo VaR the
+  Euler component is E[−wᵢrᵢ | L_p = VaR], estimated from the few observations near the
+  quantile (noisy, needs a kernel/window choice). It is not provided.
+- **The mean term matters for low-volatility assets.** A liquid fund's cVaR can be *negative*
+  even though its volatility component is positive: its expected return (−μ̂ᵢ) outweighs its tiny
+  volatility contribution. On the real cache (equal-weight 15 funds, 756 days to 2026-10-19), its
+  volatility share is +0.01% and its 99% VaR share is −0.13%.
