@@ -32,6 +32,9 @@ and the Nifty 50 benchmark, selected and verified on 2026-10-16 to 2026-10-21:
 - **Gold FoF check**: Nippon India Gold Savings fell 9.9% on 2026-02-02 (vs. 2026-01-30). HDFC
   Gold ETF FoF (−10.8%) and SBI Gold (−8.5%) fell the same day, so the move is real and the fund
   was kept.
+- **^NSEI flat close check**: ^NSEI closed at exactly 22,302.50 on both 2024-05-07 and
+  2024-05-08. Verified against the niftyindices.com historical data (different opens, highs,
+  lows and volumes on the two days), so it is a genuine coincidence, not a stale Yahoo bar.
 
 ## Usable data window: 2015 onwards
 
