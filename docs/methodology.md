@@ -178,3 +178,72 @@ contribution portfolio has all shares equal to 1/n; that is the Phase 6 risk-par
   even though its volatility component is positive: its expected return (−μ̂ᵢ) outweighs its tiny
   volatility contribution. On the real cache (equal-weight 15 funds, 756 days to 2026-10-19), its
   volatility share is +0.01% and its 99% VaR share is −0.13%.
+
+## VaR backtesting (`app/engine/risk/backtest.py`)
+
+### Conventions
+
+| Item | Convention |
+|---|---|
+| Portfolio | fixed weights (rebalanced daily), today's weights applied to the whole history |
+| Forecast | for test day t, `VaR_t` is estimated from rows `t−N … t−1` only (rolling window, default `N = 504`); row t never enters its own forecast |
+| Methods | `historical`, `parametric`, `monte_carlo` from `var.py`, re-estimated every test day |
+| Horizon | 1 trading day only (overlapping multi-day returns would make breaches autocorrelated by construction) |
+| Breach | `I_t = 1` if `−R_p,t > VaR_t`, strictly; expected rate `p = α = 1 − confidence` |
+| Monte Carlo | 10,000 simulations per day with the **same seed every day**; results depend on `(n_sims, seed)`: a different seed shifts each VaR by about `√(α(1−α)/n_sims)/φ(z)·σ_p` (≈2.7% of σ_p at 99%), which can flip a borderline day |
+
+### Tests
+
+    Kupiec:   LR_uc = −2[(n−x)ln(1−p) + x ln p − (n−x)ln(1−x/n) − x ln(x/n)]      ~ χ²(1)
+              x = 0 → −2n ln(1−p);   x = n → −2n ln p        (0·ln 0 = 0)
+    Christoffersen:  n_ij = #days with I_{t−1}=i, I_t=j;  π01 = n01/(n00+n01), π11 = n11/(n10+n11)
+              LR_ind = −2[ln L(π) − ln L(π01, π11)]                                  ~ χ²(1)
+              LR_cc  = LR_uc + LR_ind                                                 ~ χ²(2)
+
+p-values without scipy: χ²(1) survival = `erfc(√(x/2))`, χ²(2) survival = `exp(−x/2)`.
+`LR_ind`/`LR_cc` are `None` when π01 or π11 is undefined (zero breaches, a single breach on the
+last day, or breaches on every day).
+
+**Basel traffic light** (green 0–4, yellow 5–9, red 10+ exceptions) is the regulatory convention
+for 250 days of 1-day 99% VaR only. It is reported for the last 250 test days at 99% and is `None`
+otherwise.
+
+### Reading the results
+
+- **Low power.** At 99% with ~2,400 test days (~24 expected breaches) Kupiec at the 5% level rejects a
+  model whose true breach rate is 1.5% only 59% of the time, and with 250 days a true 2% rate only
+  24% of the time (exact binomial). "Not rejected" means the data cannot tell the model is wrong;
+  it is not proof that the model is correct.
+- **Historical VaR's expected rate is `k/(N+1)`, not α.** With `k = ⌈Nα⌉` and i.i.d. continuous
+  returns, the chance that the next loss exceeds the k-th largest of N is exactly `k/(N+1)`:
+  26/505 = 5.15% at 95% and 6/505 = 1.19% at 99% for N = 504.
+- **Christoffersen sees only consecutive-day clustering.** Two breaches a week apart in a volatile
+  month do not count as clustered.
+- **A rolling equal-weight window reacts slowly.** After a volatility jump the forecast keeps
+  using calm data. Historical VaR at 99% catches up once ~k big losses enter the window, while the
+  sample σ behind parametric VaR moves more slowly.
+- **Survivorship bias.** The 20 stocks are *today's* Nifty constituents, applied back to 2015.
+  Companies that were dropped (often after large falls) are missing, so the realised losses of this
+  basket are probably milder than those of the investable index portfolio at each past date.
+
+### Real-cache results (2015-01-05 → 2026-10-19 returns, N = 504, 2,405 test days from 2017-01-20)
+
+| Portfolio | Conf | Method | Expected | Breaches | Rate | Kupiec p | p_ind | p_cc | Basel (last 250) |
+|---|---|---|---|---|---|---|---|---|---|
+| ^NSEI | 95% | historical | 120.3 | 126 | 5.24% | 0.593 | 0.0009 | 0.0034 | – |
+| ^NSEI | 95% | parametric | 120.3 | 115 | 4.78% | 0.621 | 0.0012 | 0.0045 | – |
+| ^NSEI | 95% | monte_carlo | 120.3 | 117 | 4.86% | 0.760 | 0.0017 | 0.0068 | – |
+| ^NSEI | 99% | historical | 24.1 | 30 | 1.25% | 0.240 | 0.0004 | 0.0009 | 5 yellow |
+| ^NSEI | 99% | parametric | 24.1 | 41 | 1.70% | 0.0016 | 0.0005 | 0.00002 | 6 yellow |
+| ^NSEI | 99% | monte_carlo | 24.1 | 39 | 1.62% | 0.0049 | 0.0003 | 0.00003 | 6 yellow |
+| EW20 | 95% | historical | 120.3 | 128 | 5.32% | 0.473 | 0.0036 | 0.0113 | – |
+| EW20 | 95% | parametric | 120.3 | 119 | 4.95% | 0.907 | 0.0024 | 0.0098 | – |
+| EW20 | 95% | monte_carlo | 120.3 | 118 | 4.91% | 0.833 | 0.0020 | 0.0082 | – |
+| EW20 | 99% | historical | 24.1 | 26 | 1.08% | 0.693 | 0.0001 | 0.0005 | 4 green |
+| EW20 | 99% | parametric | 24.1 | 36 | 1.50% | 0.023 | 0.118 | 0.022 | 4 green |
+| EW20 | 99% | monte_carlo | 24.1 | 36 | 1.50% | 0.023 | 0.118 | 0.022 | 4 green |
+
+EW20 = equal-weight 20 stocks. The rate is right at 95% for every method; normal-based VaR
+under-covers at 99% (fat tails), while historical VaR covers. Independence is rejected almost
+everywhere, driven by March 2020 (7–8 breaches at 99%) and March 2026 (4–5). All 99% runs land in
+yellow or green over the last 250 days, which include March 2026.
