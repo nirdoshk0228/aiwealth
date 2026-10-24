@@ -7,9 +7,10 @@ import pandas as pd
 import pytest
 
 from app.data.errors import BadResponseError, NotFoundError
-from app.data.models import AssetRef, PriceHistory
+from app.data.factor_repository import ParquetFactorRepository
+from app.data.models import FACTOR_COLUMNS, AssetRef, FactorHistory, PriceHistory
 from app.data.repository import ParquetRepository
-from app.data.seed import run_seed
+from app.data.seed import run_factor_seed, run_seed
 
 FUND = AssetRef(
     kind="mutual_fund", symbol="122639", name="Parag Parikh Flexi Cap Fund - Direct Plan - Growth"
@@ -103,3 +104,64 @@ def test_bad_response_is_reported_as_failure(repo: ParquetRepository) -> None:
     provider = FakeProvider(fail={FUND.id: BadResponseError("garbled")})
     report = run_seed([FUND], {"mutual_fund": provider}, repo, sleep=lambda s: None)
     assert report.failed[0].error == "BadResponseError: garbled"
+
+
+# --- factors ---
+
+
+class FakeFactorProvider:
+    source = "fake factors"
+
+    def __init__(self, fail: Exception | None = None) -> None:
+        self.fail = fail
+
+    def fetch(self) -> FactorHistory:
+        if self.fail is not None:
+            raise self.fail
+        idx = pd.DatetimeIndex(["2025-12-30", "2025-12-31"], name="date")
+        frame = pd.DataFrame({c: [0.001, 0.002] for c in FACTOR_COLUMNS}, index=idx)
+        return FactorHistory(
+            factors=frame,
+            dataset="ff",
+            release="2025-12",
+            source=self.source,
+            source_url="https://example.invalid/f.csv",
+            source_file="f.csv",
+            raw_csv=b"raw",
+            units_source="percent",
+            citation="c",
+            warnings=("one NA row kept",),
+        )
+
+
+def test_factor_seed_caches_and_reports(tmp_path: Path) -> None:
+    repo = ParquetFactorRepository("ff", tmp_path)
+    result = run_factor_seed(FakeFactorProvider(), repo, dataset="ff", release="2025-12")
+
+    assert result.ok
+    assert (result.rows, result.first_date, result.last_date) == (
+        2,
+        date(2025, 12, 30),
+        date(2025, 12, 31),
+    )
+    assert repo.exists() and repo.metadata().release == "2025-12"
+    line = result.format_line()
+    assert "ok  2 rows (2025-12-30 to 2025-12-31)" in line
+    assert "warning: one NA row kept" in line
+
+
+def test_factor_seed_reports_provider_failure(tmp_path: Path) -> None:
+    repo = ParquetFactorRepository("ff", tmp_path)
+    provider = FakeFactorProvider(fail=NotFoundError("HTTP 404 (is release 2030-01 published?)"))
+    result = run_factor_seed(provider, repo, dataset="ff", release="2030-01")
+
+    assert not result.ok
+    assert result.error == "NotFoundError: HTTP 404 (is release 2030-01 published?)"
+    assert "FAILED" in result.format_line()
+    assert not repo.exists()
+
+
+def test_factor_seed_does_not_swallow_bugs(tmp_path: Path) -> None:
+    repo = ParquetFactorRepository("ff", tmp_path)
+    with pytest.raises(KeyError):
+        run_factor_seed(FakeFactorProvider(fail=KeyError("bug")), repo, dataset="ff", release="x")

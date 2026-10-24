@@ -11,8 +11,9 @@ from dataclasses import dataclass, field, replace
 from datetime import date
 
 from app.data.errors import ProviderError
+from app.data.factor_repository import FactorRepository
 from app.data.models import AssetKind, AssetRef
-from app.data.providers.base import PriceProvider
+from app.data.providers.base import FactorProvider, PriceProvider
 from app.data.repository import SeriesRepository
 
 logger = logging.getLogger(__name__)
@@ -106,3 +107,53 @@ def run_seed(
             "%s: cached %d rows (%s to %s)", asset.id, meta.rows, meta.first_date, meta.last_date
         )
     return SeedReport(results=tuple(results))
+
+
+@dataclass(frozen=True)
+class FactorSeedResult:
+    dataset: str
+    release: str
+    error: str | None = None
+    rows: int = 0
+    first_date: date | None = None
+    last_date: date | None = None
+    warnings: tuple[str, ...] = field(default_factory=tuple)
+
+    @property
+    def ok(self) -> bool:
+        return self.error is None
+
+    def format_line(self) -> str:
+        if not self.ok:
+            return f"factors {self.dataset} (release {self.release}): FAILED  {self.error}"
+        line = (
+            f"factors {self.dataset} (release {self.release}): ok  {self.rows} rows "
+            f"({self.first_date} to {self.last_date}), stored as decimals"
+        )
+        return "\n".join([line, *(f"  warning: {w}" for w in self.warnings)])
+
+
+def run_factor_seed(
+    provider: FactorProvider, repo: FactorRepository, *, dataset: str, release: str
+) -> FactorSeedResult:
+    """Download one factor file and cache it. Same failure policy as `run_seed`: a
+    ProviderError becomes a failed result, anything else is a bug and propagates."""
+    try:
+        history = provider.fetch()
+    except ProviderError as exc:
+        logger.error("factors %s: %s", dataset, exc)
+        return FactorSeedResult(
+            dataset=dataset, release=release, error=f"{type(exc).__name__}: {exc}"
+        )
+    meta = repo.save(history)
+    logger.info(
+        "factors %s: cached %d rows (%s to %s)", dataset, meta.rows, meta.first_date, meta.last_date
+    )
+    return FactorSeedResult(
+        dataset=meta.dataset,
+        release=meta.release,
+        rows=meta.rows,
+        first_date=meta.first_date,
+        last_date=meta.last_date,
+        warnings=history.warnings,
+    )

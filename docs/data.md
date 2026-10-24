@@ -7,6 +7,7 @@
 | Mutual funds (Direct, Growth) | [mfapi.in](https://www.mfapi.in/) by AMFI scheme code | NAV per unit (INR) |
 | NSE stocks | Yahoo Finance via `yfinance`, `.NS` suffix | Split- and dividend-adjusted close (`auto_adjust=True`) |
 | Nifty 50 | Yahoo Finance via `yfinance`, `^NSEI` | Index level (price index, not total return) |
+| Fama-French-Carhart factors | IIM Ahmedabad, daily survivorship-bias-adjusted file (see [Factor data](#factor-data-iim-ahmedabad)) | Daily MKT−RF, SMB, HML, WML, RF |
 
 ## Universe
 
@@ -130,6 +131,9 @@ data/raw/                      (gitignored, about 3 MB for 36 assets)
   mutual_fund/120586.meta.json source, fetched_at (UTC), first/last date, rows, warnings
   equity/M%26M.parquet         symbols are percent-encoded: M&M -> M%26M, ^NSEI -> %5ENSEI
   index/%5ENSEI.parquet
+  factors/iima_ff4_daily/factors.parquet   factor returns as decimals (see Factor data)
+  factors/iima_ff4_daily/meta.json         release, source URL, sha256, units, citation
+  factors/iima_ff4_daily/source/<file>.csv the downloaded file, byte for byte
 ```
 
 - A missing asset raises `NotInCacheError`. There is no fallback to the network.
@@ -137,6 +141,8 @@ data/raw/                      (gitignored, about 3 MB for 36 assets)
   requires it, so an interrupted seed never leaves an entry that looks complete.
 - The seed run continues past failures, prints a per-asset summary and exits 1 if anything
   failed. Run it with `python scripts/seed_data.py` (or `--only CODE_OR_SYMBOL`, `--kind`).
+  Factors are seeded too; `--kind factors` downloads only them and `--factor-release YYYY-MM`
+  picks the release.
 
 ## Yahoo quirks handled when data is downloaded
 
@@ -209,6 +215,88 @@ would need a second source for the index.
 
 Similarly, a fund's filled day on a Muhurat or weekend session is a 0% return and the move
 lands on the next NAV. Funds publish no NAV on those days, so there is no real price to use.
+
+## Factor data (IIM Ahmedabad)
+
+**Source.** Indian Fama-French and momentum factors published by IIM Ahmedabad
+(<https://faculty.iima.ac.in/~iffm/Indian-Fama-French-Momentum/>), built from CMIE Prowess.
+Cite as:
+
+> Agarwalla, S. K., Jacob, J. and Varma, J. R. (2013). *Four factor model in Indian equities
+> market.* Working Paper No. 2013-09-05, Indian Institute of Management Ahmedabad.
+
+**Licence.** The page and its FAQ state no licence or terms of use. The file is therefore never
+committed: `scripts/seed_data.py` downloads it into the gitignored `data/raw/`, and the test
+fixture (`tests/data/fixtures/iima_ff4_daily_synthetic.csv`) copies the file's format with
+made-up values.
+
+**File used.** Release `2025-12` (server Last-Modified: 2026-01-22),
+daily, survivorship-bias adjusted, which the page labels "Recommended":
+`DATA/2025-12_FourFactors_and_Market_Returns_Daily_SurvivorshipBiasAdjusted.csv`. The server
+redirects `/~iffm/` to `/iffm/` (HTTP 301); the final URL is stored in the cache metadata.
+
+| Item | What the file contains | How it was established |
+|---|---|---|
+| Header | `Date,SMB,HML,WML,MF,RF`, CRLF line endings, missing values are `NA` | Read from the file. The parser rejects any other header |
+| Rows | 8,004, from 1993-10-01 to 2025-12-31, 40 weekend sessions | Read from the file |
+| Units | **Percent**, simple (holding-period) returns per row | Daily RF sums to 5.6% over 2025, the 91-day T-bill level. The release's monthly file equals `∏(1 + daily) − 1` to about 1e-15 in every column; summing the daily values (reading them as log returns) is off by up to 0.7 percentage points a month |
+| `MF` | Market risk premium Rm − Rf. The market is "the value-weighted portfolio of all the stocks involved in the estimation of SMB, HML, and WML portfolios", and Rf "computed using the 91-days T-bill rate, is deducted from the return of the market portfolio" | Working paper, section 5.3. It is a broad BSE/Prowess market, **not the Nifty 50**: its daily correlation with Nifty 50 minus RF is 0.94 (2007-09 to 2025-12) |
+| `RF` | 91-day T-bill: "annualized yields of new issuances of 91-day Treasury Bills … provided by the Reserve Bank of India" | FAQ. Each row covers the time since the previous row, so a Monday's RF is about three weekdays' worth |
+| NA | 1993-10-01 (MF, RF) and 1994-11-28 (SMB, HML, WML) | Read from the file. Both are before our 2015 window |
+
+The working paper (section 5.1) defines stock returns with `ln(·)`, yet the files are simple
+returns as shown above. We follow the files and the page's statement that values are holding
+period returns.
+
+**Conversion.** `app/data/providers/iima_factors.py` divides every value by 100 exactly once,
+at parse time, and renames `MF` to `MKT_RF`. The cache holds decimal simple returns
+(`0.01` = 1%) only, and its metadata says so (`units_source`, `units_stored`). To catch a units
+change in a later release, the parser rejects the file if any |value| exceeds 0.5 after
+conversion, if RF is outside [0, 0.01], or if the standard deviation of MKT_RF is outside
+[0.002, 0.05] (the real value is 0.0136).
+
+**NA rows are kept as NaN, not dropped.** If a dropped row fell on a day that gets compounded
+into the next calendar row (below), that day's return would silently disappear. As NaN it
+blanks the affected row instead. Both NA rows are listed in the metadata warnings.
+
+**Cache metadata** (`meta.json`): dataset, source, release, final source URL, citation,
+download time (UTC), raw file path, sha256 and size, source and stored units, columns,
+first/last date, rows, weekend rows, NA rows and warnings. IIMA revises earlier years between
+releases (FAQ: "CMIE makes changes in the data between different releases"), so record the
+release and sha256 alongside any published result.
+
+### Alignment to the master calendar
+
+`app/engine/factors/align.py::align_factors` (pure) puts the factors on the rows of
+`simple_returns(prices)`. `app/services/factors.py::load_aligned_factors` loads the cache and
+calls it with the price calendar. Row c_i covers (c_{i−1}, c_i]:
+
+- **Row gets factor data** if both c_{i−1} and c_i are factor dates. Every factor row dated in
+  (c_{i−1}, c_i] is compounded: `∏(1 + x) − 1` for SMB, HML, WML and RF, and for MKT_RF
+  `∏(1 + MKT_RF + RF) − ∏(1 + RF)` (total market over the period minus RF over the period).
+  IIMA's monthly file compounds MF directly. The difference is about MKT_RF × RF, around 1e-6
+  for a two-day fold. Compounding the long-short SMB, HML and WML is the usual approximation.
+- **Factor day not on our calendar** (special sessions): compounded into the next calendar row
+  and listed in the report.
+- **Calendar day missing from the factor file:** the factor return around it spans two of our
+  rows, so **both** rows are left NaN rather than given a mismatched period.
+- **Outside the factor coverage, or an NA being compounded:** NaN, counted in the report.
+
+### Result on the real data (release 2025-12, calendar from the cache seeded 2026-10-20)
+
+| | |
+|---|---|
+| Return rows | 2,909 (2015-01-05 → 2026-10-19), **2,713 with factor data** |
+| After factor coverage | **196 rows from 2026-01-01**: the file ends 2025-12-31. Regressions stop there until IIMA publishes a newer release |
+| Calendar days missing from the factor file | 0 |
+| Factor days compounded into the next row (11) | 2015-02-28, 2020-02-01 (budget Saturdays); 2015-11-11, 2016-10-30, 2023-11-12 (Muhurat); 2024-01-20, 2024-03-02, 2024-05-18 (Saturday sessions); 2025-03-18 (Yahoo phantom-bar day, see Yahoo quirks); **2019-02-13 and 2019-03-29** (below). The session labels come from the weekday and the known exchange calendar and were not checked against NSE circulars |
+
+**2019-02-13 (Wed) and 2019-03-29 (Fri) are missing from our master calendar.** Yahoo has no
+bar for any of the 20 stocks or `^NSEI` on either day. All 15 funds published a NAV and IIMA
+has a row, so both were very likely trading sessions (not yet checked against the NSE
+bhavcopy). Our 2019-02-14 and 2019-04-01 returns therefore each span two sessions for every
+asset. The factor alignment compounds the factors over the same span, so the regression
+inputs stay consistent. Fixing the calendar would need a second source for stock prices.
 
 ## Return conventions
 
