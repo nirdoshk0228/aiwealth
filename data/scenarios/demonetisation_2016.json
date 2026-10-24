@@ -1,0 +1,14 @@
+{
+  "id": "demonetisation_2016",
+  "type": "historical",
+  "name": "Demonetisation (Nov-Dec 2016)",
+  "description": "Replay of the market after the withdrawal of the Rs 500 and Rs 1,000 notes, from the last close before the announcement to the Nifty 50 trough that followed.",
+  "start": "2016-11-08",
+  "end": "2016-12-26",
+  "rationale": "The demonetisation was announced on the evening of 8 Nov 2016, after the close, so the 8 Nov close is the last pre-event price. The end is the lowest Nifty 50 close after the announcement in our cache (2016-12-26, 7,908.25; -7.44% from 8,543.55), 33 sessions later. Nifty's earlier peak (2016-10-04, 8,769) was not used as the start because the October fall predates the event.",
+  "caveats": [
+    "The US presidential election result (9 Nov 2016) falls inside the window, so its effect (dollar strength, emerging-market outflows, a fall in gold) is mixed in with the demonetisation effect; the replay cannot separate them.",
+    "The Nippon India Gold Savings fund falls about 9.8% in this window, consistent with gold's fall after the US election rather than with demonetisation."
+  ],
+  "benchmark_check": { "start_close": 8543.55, "end_close": 7908.25, "change": -0.0744 }
+}

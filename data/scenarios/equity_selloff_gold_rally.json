@@ -1,0 +1,12 @@
+{
+  "id": "equity_selloff_gold_rally",
+  "type": "hypothetical",
+  "name": "Equity sell-off with a gold rally",
+  "description": "Market down 15% through factor betas, gold funds up 10% as a direct shock.",
+  "factor_shocks": { "MKT_RF": -0.15 },
+  "direct_shocks": [
+    { "target": { "kind": "category", "category": "gold" }, "shock": 0.1 }
+  ],
+  "rationale": "Illustrative, not a forecast. In two of the six replay windows the gold fund rose while Nifty 50 fell (Sep 2024 - Mar 2025: gold fund +13.5%, Nifty -15.8%; Jan - Mar 2026: +8.3% vs -15.2%, from our cache); in the demonetisation window it fell 9.8%, so a gold rally is a scenario choice, not a rule. The gold shock is direct because the gold fund's equity-factor betas are near 0.",
+  "caveats": []
+}

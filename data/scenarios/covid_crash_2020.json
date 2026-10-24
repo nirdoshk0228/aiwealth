@@ -1,0 +1,14 @@
+{
+  "id": "covid_crash_2020",
+  "type": "historical",
+  "name": "COVID-19 crash (Jan-Mar 2020)",
+  "description": "Replay of the 2020 pandemic sell-off from the Nifty 50 pre-crash peak to its trough.",
+  "start": "2020-01-14",
+  "end": "2020-03-23",
+  "rationale": "Peak-to-trough of Nifty 50 closes in 2020 in our cache: 12,362.30 on 2020-01-14 to 7,610.25 on 2020-03-23 (-38.44%), 47 sessions, the largest drawdown since 2015. The trough is the session before India's national lockdown was announced (24 Mar 2020).",
+  "caveats": [
+    "A sharp, liquidity-driven crash followed by a fast recovery; the replay ends at the trough and says nothing about recovery time.",
+    "Debt fund NAVs in March 2020 also reflect the credit-market stress of that period; the corporate bond fund is slightly negative (-0.4%) over the window."
+  ],
+  "benchmark_check": { "start_close": 12362.3, "end_close": 7610.25, "change": -0.3844 }
+}

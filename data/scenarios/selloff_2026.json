@@ -1,0 +1,14 @@
+{
+  "id": "selloff_2026",
+  "type": "historical",
+  "name": "Jan - Mar 2026 sell-off",
+  "description": "Replay of the 2026 Nifty 50 drawdown, most of which happened in March 2026.",
+  "start": "2026-01-02",
+  "end": "2026-03-30",
+  "rationale": "Peak-to-trough of Nifty 50 closes in 2026 in our cache: 26,328.55 on 2026-01-02 to 22,331.40 on 2026-03-30 (-15.18%), 57 sessions. Most of the fall came in March: from 25,178.65 on 2026-02-27 to the trough is -11.31%. Peak to trough was chosen for consistency with the other drawdown windows.",
+  "caveats": [
+    "Cause: verify. It is not documented here; check a market commentary source before attributing one.",
+    "The gold fund's -9.9% day on 2026-02-02 falls inside the window; it was verified against HDFC Gold ETF FoF (-10.8%) and SBI Gold (-8.5%), see 'Gold FoF check' in docs/data.md."
+  ],
+  "benchmark_check": { "start_close": 26328.55, "end_close": 22331.4, "change": -0.1518 }
+}

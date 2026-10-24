@@ -1,0 +1,14 @@
+{
+  "id": "drawdown_2024_2025",
+  "type": "historical",
+  "name": "Sep 2024 - Mar 2025 drawdown",
+  "description": "Replay of the slow five-month decline from the Sep 2024 Nifty 50 high.",
+  "start": "2024-09-26",
+  "end": "2025-03-04",
+  "rationale": "Peak-to-trough of Nifty 50 closes in our cache: 26,216.05 on 2024-09-26 (its highest close up to then) to 22,082.65 on 2025-03-04 (-15.77%), 109 sessions. A slow drawdown, unlike the event shocks.",
+  "caveats": [
+    "Commonly attributed to sustained foreign portfolio outflows and weaker earnings (verify against a market commentary source before citing a cause).",
+    "Over a 109-session window the buy-and-hold assumption matters more than in a one-day shock: weights drift as assets move apart."
+  ],
+  "benchmark_check": { "start_close": 26216.05, "end_close": 22082.65, "change": -0.1577 }
+}

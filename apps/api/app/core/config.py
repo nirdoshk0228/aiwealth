@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     def universe_path(self) -> Path:
         return self.data_dir / "universe.json"
 
+    @property
+    def scenarios_dir(self) -> Path:
+        return self.data_dir / "scenarios"
+
 
 @lru_cache
 def get_settings() -> Settings:

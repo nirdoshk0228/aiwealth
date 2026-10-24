@@ -1,0 +1,14 @@
+{
+  "id": "it_sector_shock",
+  "type": "hypothetical",
+  "name": "IT sector shock",
+  "description": "Information Technology stocks down 15%; everything else unchanged.",
+  "factor_shocks": {},
+  "direct_shocks": [
+    { "target": { "kind": "sector", "sector": "Information Technology" }, "shock": -0.15 }
+  ],
+  "rationale": "Illustrative sector shock; the magnitude is an assumption, not a calibration. Demonstrates sector targets, which match stocks by their NSE industry in universe.json.",
+  "caveats": [
+    "Funds are not shocked: we have no fund holdings data, so a sector shock cannot reach the IT stocks inside a fund (no look-through)."
+  ]
+}

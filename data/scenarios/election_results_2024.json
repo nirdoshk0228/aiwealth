@@ -1,0 +1,14 @@
+{
+  "id": "election_results_2024",
+  "type": "historical",
+  "name": "Election results day (4 Jun 2024)",
+  "description": "One-day replay of the 2024 Lok Sabha results day.",
+  "start": "2024-06-03",
+  "end": "2024-06-04",
+  "rationale": "Votes were counted on 4 Jun 2024 and the result differed from the exit polls; Nifty 50 fell from 23,263.90 to 21,884.50 (-5.93%) in one session in our cache.",
+  "caveats": [
+    "The base close (3 Jun) was itself +3.25% on the exit polls, so the one-day fall partly reverses that rally.",
+    "The market rebounded the next session (+3.36% on 5 Jun); a one-day window shows a shock, not a lasting loss."
+  ],
+  "benchmark_check": { "start_close": 23263.9, "end_close": 21884.5, "change": -0.0593 }
+}

@@ -343,3 +343,91 @@ Equal-weight portfolios are rebalanced daily (`var.portfolio_returns`).
 - **Windows and stability.** The betas are averages over 2015–2025. Rolling regressions are a
   possible extension. Two return rows (2019-02-14 and 2019-04-01) span two sessions, with the
   factors compounded to match (docs/data.md).
+
+## Stress testing (`app/engine/stress/`)
+
+Two scenario types, one result type. Scenario files live in `data/scenarios/` (one JSON per
+scenario, validated by `app/data/scenarios.py`); `app/services/stress.py` converts them into the
+engine's frozen dataclasses, so the engine never imports the data layer. The windows chosen and
+why: docs/data.md, "Stress scenario windows".
+
+### Conventions
+
+| Item | Convention |
+|---|---|
+| Units | every shock and return is a **simple return in decimals**; shocks must be in (−1, 1] (a value like −20 is rejected as a likely percent/decimal mix-up) |
+| Sign | P&L is **signed** (−0.15 = lose 15%), unlike VaR, because a scenario can be a gain; the in-window max drawdown is positive, as in `metrics.py` |
+| Rupees | `pnl_rupees = portfolio_value × pnl`, and the same per asset |
+| Weights | asset id → weight, finite, summing to 1 (the rule in `var.py`) |
+| Contributions | `c_i = w_i r_i` for both types, so `Σ c_i = P&L` exactly |
+| Worst contributors | the n most negative `c_i`, ties broken by asset id; gains are never listed |
+
+### Historical replay (`historical.py`)
+
+    R_i      = P_i(end) / P_i(start) − 1
+    V_t / V0 = Σ_i w_i P_i(t) / P_i(start)               buy-and-hold value path
+    P&L      = Σ_i w_i R_i                               exact for buy-and-hold
+    MDD      = max_t (1 − V_t / max_{s≤t} V_s)           the start counts as a peak
+
+- **Buy-and-hold inside the window**, not the daily-rebalanced fixed weights of `var.py`:
+  investors do not rebalance daily through a crash, and only buy-and-hold makes `w_i R_i` an exact
+  per-asset split. The difference is real: an asset that doubles and then halves gives 0% buy-and-hold
+  and +12.5% rebalanced in a 50/50 portfolio (a unit test). For a one-day window the two are identical.
+- `start` is the **base close**: weights are invested at that close, so the first return counted is
+  start → next session. Both dates must be rows of the aligned price frame; otherwise the error
+  names the nearest trading days. A window outside the data is rejected; nothing is extrapolated.
+
+### Hypothetical shocks (`hypothetical.py`)
+
+    factor-implied   f_i = Σ_k β_ik s_k            k over the shocked factors only
+    applied          r_i = direct shock if one matches, else f_i, else 0
+
+- **Betas** are the Carhart betas from `factor_regression_by_asset` on the 2,713 rows with factor
+  data (2015-01-05 → 2025-12-31). Alpha and RF are ignored (an instantaneous shock has no time for
+  either) and the residual is set to 0.
+- **Direct shocks** target an asset id, a sector (a stock's NSE industry in `universe.json`) or a
+  fund category. Precedence is **asset > sector > category > factor** (the most specific wins), and a
+  direct shock replaces the factor-implied value. The result keeps `factor_implied` and adds a note
+  for every override. A direct shock that matches nothing, or loses to a more specific one for every
+  match, produces a warning, so a typo cannot pass silently. Universe-level typos are caught earlier
+  by `check_against_universe`.
+- **R² warning.** If an asset's applied shock is factor-implied and its regression R² is below 0.2,
+  the result warns. Debt, liquid and gold funds have R² of 0.00 to 0.03, so their factor-implied
+  shocks are close to 0 because the factors explain nothing about them, not because they are safe.
+  Use direct shocks for them, as `credit_event` and `equity_selloff_gold_rally` do.
+
+### What the numbers mean, and what they do not
+
+- **A replay is one realised path**, applied to today's weights. It is not a probability, not a
+  worst case, and it carries everything else that happened in the window (the US election inside
+  the demonetisation window, rupee and crude oil in 2018).
+- **Linearity understates crash losses.** Betas come from ordinary days. In a crash, correlations
+  rise and NAV-based funds' daily betas are biased toward 0 by stale pricing. Compare: with
+  MKT_RF −20% the hybrid funds get −9.9% and −14.8%, while in the COVID replay (Nifty −38.4%) they
+  realised −26.7% and −33.3%. Scaled to the same market fall, the replay losses are larger than the
+  betas imply.
+- **Large caps load negatively on SMB**, so an SMB −10% shock *raises* the factor-implied return of
+  large-cap stocks and funds. `equity_bear_factor` hits small-cap funds hardest (−23.6% for Nippon
+  Small Cap) and EW 20 stocks less (−17.6%) than the −20% market shock.
+- **No look-through.** A sector shock reaches stocks only; we have no fund holdings, so the IT stocks
+  inside an equity fund are not shocked (`it_sector_shock` on EW 15 funds = 0, with a warning).
+- **Hypothetical magnitudes are assumptions.** Each file states its rationale; only the equity leg of
+  `credit_event` (−5%, the Nifty fall over 2018-09-14 → 09-28) is taken from our data.
+
+### Real-cache results (₹10,00,000 portfolios, betas from 2015-01-05 → 2025-12-31)
+
+| Scenario | Nifty | EW 20 stocks | EW 15 funds | In-window MDD (stocks / funds) |
+|---|---|---|---|---|
+| Demonetisation, 2016-11-08 → 12-26 | −7.44% | −7.10% | −6.13% | 7.26% / 6.63% |
+| 2018 drawdown (IL&FS period), 2018-08-28 → 10-26 | −14.55% | −13.56% | −8.84% | 13.89% / 9.20% |
+| COVID crash, 2020-01-14 → 03-23 | −38.44% | −34.16% | −24.73% | 35.02% / 25.83% |
+| Election results day, 2024-06-03 → 06-04 | −5.93% | −4.80% | −4.15% | 4.80% / 4.15% |
+| Sep 2024 – Mar 2025, 2024-09-26 → 2025-03-04 | −15.77% | −14.46% | −9.43% | 14.64% / 9.65% |
+| 2026 sell-off, 2026-01-02 → 03-30 | −15.18% | −11.45% | −8.24% | 12.19% / 9.19% |
+| `equity_bear_factor` (MKT_RF −20%, SMB −10%) | – | −17.59% | −12.88% | – |
+| `equity_selloff_gold_rally` (MKT_RF −15%, gold +10%) | – | −14.87% | −8.65% | – |
+| `credit_event` (MKT_RF −5%, corp bond −2%, liquid −0.5%, gilt 0) | – | −4.96% | −3.25% | – |
+| `it_sector_shock` (IT stocks −15%) | – | −1.50% | 0.00% | – |
+
+The in-window MDD can exceed the window loss when the portfolio first rose above its starting value
+(COVID: the stock portfolio peaked on 2020-02-13). In the 2026 window it peaked on 2026-02-11.

@@ -1,0 +1,17 @@
+{
+  "id": "credit_event",
+  "type": "hypothetical",
+  "name": "Credit event (hypothetical)",
+  "description": "A corporate credit shock: corporate bond and liquid funds marked down, gilts unchanged, equities down 5%.",
+  "factor_shocks": { "MKT_RF": -0.05 },
+  "direct_shocks": [
+    { "target": { "kind": "category", "category": "debt_corporate_bond" }, "shock": -0.02 },
+    { "target": { "kind": "category", "category": "debt_liquid" }, "shock": -0.005 },
+    { "target": { "kind": "category", "category": "debt_gilt" }, "shock": 0.0 }
+  ],
+  "rationale": "Exists because the 2018 IL&FS replay cannot show credit stress for our debt funds (see ilfs_2018_equity_drawdown and docs/data.md). The equity leg matches the Nifty 50 fall over the fortnight of the DHFL crash in our cache (2018-09-14 to 2018-09-28: -5.08%). The debt shocks are illustrative assumptions: our cache has no credit loss in these funds to calibrate them from. Gilts are set to 0 explicitly (a credit event, not a rate event) instead of letting a near-zero-R^2 factor beta decide.",
+  "caveats": [
+    "Funds that actually held defaulted paper in 2018 marked it down by more than these magnitudes; the shocks describe a diversified fund, not one with a concentrated exposure.",
+    "The gold fund is not shocked directly and gets a factor-implied value that the result flags as unreliable."
+  ]
+}

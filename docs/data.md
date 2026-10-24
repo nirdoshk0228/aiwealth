@@ -320,3 +320,49 @@ inputs stay consistent. Fixing the calendar would need a second source for stock
 - **Fund NAV vs. stock close:** fund NAVs are struck at the end of the day from closing
   prices, so they line up with stock closes for domestic equity funds. Gold and overseas
   holdings may not.
+
+## Stress scenario windows
+
+Historical replay windows are in `data/scenarios/*.json` (schema: `app/data/scenarios.py`). Every
+window was read off our aligned cache (Nifty 50 closes), not typed from memory. Each file records
+the Nifty closes at both ends in `benchmark_check`. `tests/services/test_stress.py` re-reads the
+cache and checks that the closes still match and that, for drawdown windows, the start is the
+window's highest close and the end its lowest. A re-seed that moves a peak therefore fails a test
+instead of silently changing a scenario.
+
+| Scenario | Window (closes) | Sessions | Nifty | How the dates were chosen |
+|---|---|---|---|---|
+| Demonetisation | 2016-11-08 → 2016-12-26 | 33 | 8,543.55 → 7,908.25 (−7.44%) | announced after the 8 Nov close; end = lowest close after it |
+| 2018 drawdown (IL&FS period) | 2018-08-28 → 2018-10-26 | 39 | 11,738.50 → 10,030.00 (−14.55%) | 2018 peak to trough |
+| COVID crash | 2020-01-14 → 2020-03-23 | 47 | 12,362.30 → 7,610.25 (−38.44%) | 2020 peak to trough |
+| Election results day | 2024-06-03 → 2024-06-04 | 1 | 23,263.90 → 21,884.50 (−5.93%) | the counting day, close to close |
+| Sep 2024 – Mar 2025 | 2024-09-26 → 2025-03-04 | 109 | 26,216.05 → 22,082.65 (−15.77%) | peak to trough |
+| 2026 sell-off | 2026-01-02 → 2026-03-30 | 57 | 26,328.55 → 22,331.40 (−15.18%) | peak to trough; most of it in March (−11.31% from 2026-02-27) |
+
+Caveats recorded in the files:
+
+- **Demonetisation:** the US election result (9 Nov 2016) falls inside the window. The gold fund's
+  −9.8% over the window reflects gold's post-election fall, not demonetisation.
+- **2026 sell-off:** the cause is marked "verify" (not documented here). The gold fund's −9.9% day
+  on 2026-02-02 is inside the window and is genuine (see "Gold FoF check" above).
+- **Sep 2024 – Mar 2025:** the commonly cited causes (foreign outflows, weaker earnings) are
+  marked "verify".
+
+### Why the 2018 replay shows no credit stress
+
+The 2018 window is labelled an **equity** drawdown covering the IL&FS period. It is not a debt stress
+test. Over the window our three debt funds all *gained*: ABSL Corporate Bond +1.0%, SBI Gilt +1.0%,
+Axis Liquid +1.2%. Their worst single day in Sep–Oct 2018 was −0.36% (SBI Gilt). The reason:
+
+- **None of our three debt funds held IL&FS or DHFL paper.** The losses of 2018 were concentrated in
+  the schemes that did, which marked those holdings down.
+- **Our universe excludes those schemes by construction.** It consists of popular funds that still exist
+  today with long histories (see "Survivorship and selection bias"). Schemes hit by the 2018
+  defaults were often wound up, merged or fell out of favour, so they are not in a 2026 selection of
+  popular funds.
+
+The replay is therefore correct for *these* funds but must not be read as "debt funds were safe in
+2018". For a credit shock, use the hypothetical `credit_event` scenario. It applies direct shocks
+(corporate bond −2%, liquid −0.5%, gilt 0%) that are stated assumptions, because our cache has no
+credit loss to calibrate them from. Its equity leg (MKT_RF −5%) matches the Nifty fall over the
+fortnight of the DHFL crash (2018-09-14 → 2018-09-28: −5.08%).

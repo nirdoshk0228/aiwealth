@@ -1,0 +1,12 @@
+{
+  "id": "equity_bear_factor",
+  "type": "hypothetical",
+  "name": "Equity bear market (factor shock)",
+  "description": "Instantaneous market fall of 20% with small caps underperforming large caps by 10%, mapped to every asset through its Carhart factor betas.",
+  "factor_shocks": { "MKT_RF": -0.2, "SMB": -0.1 },
+  "direct_shocks": [],
+  "rationale": "Illustrative, not a forecast. A -20% market shock lies between the 2018 (-14.6%) and COVID (-38.4%) Nifty 50 drawdowns in our cache. SMB -10% encodes the assumption that small caps fall more than large caps in a sell-off.",
+  "caveats": [
+    "Debt, liquid and gold funds have R^2 near 0 against equity factors, so their factor-implied shocks are close to 0 and unreliable; the result flags them."
+  ]
+}

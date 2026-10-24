@@ -1,0 +1,14 @@
+{
+  "id": "ilfs_2018_equity_drawdown",
+  "type": "historical",
+  "name": "2018 equity drawdown (IL&FS period)",
+  "description": "Replay of the Aug-Oct 2018 Nifty 50 drawdown, which covers the IL&FS defaults and the DHFL share crash. An equity drawdown window, not a credit stress test for our debt funds.",
+  "start": "2018-08-28",
+  "end": "2018-10-26",
+  "rationale": "Peak-to-trough of Nifty 50 closes in 2018 in our cache: 11,738.50 on 2018-08-28 to 10,030.00 on 2018-10-26 (-14.55%), 39 sessions. The window contains the IL&FS group defaults of Sep 2018, the DHFL share crash of 21 Sep 2018 and the government's supersession of the IL&FS board on 1 Oct 2018.",
+  "caveats": [
+    "The window also contains a weak rupee, high crude oil prices and rising US yields; it does not isolate the IL&FS event.",
+    "The replay shows no credit stress for our debt funds (ABSL Corporate Bond, SBI Gilt and Axis Liquid each gain about 1% over the window): none of them held IL&FS or DHFL paper, and a universe of popular surviving funds excludes the schemes that did (selection/survivorship bias, see docs/data.md). Use the hypothetical credit_event scenario for a credit shock."
+  ],
+  "benchmark_check": { "start_close": 11738.5, "end_close": 10030.0, "change": -0.1455 }
+}
