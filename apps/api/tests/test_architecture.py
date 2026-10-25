@@ -1,4 +1,4 @@
-"""Import-boundary checks that turn CLAUDE.md architecture rules 1 and 4 into CI failures.
+"""Import-boundary checks that turn CLAUDE.md architecture rules 1, 3 and 4 into CI failures.
 
 Static (AST) scan of every module under app/, so a forbidden import fails even if the code
 path is never executed in tests. Relative imports are resolved to absolute module names.
@@ -61,11 +61,60 @@ def violations(files: list[Path], forbidden: tuple[str, ...]) -> list[str]:
     ]
 
 
+def files_in(*packages: str) -> list[Path]:
+    return [f for f in ALL_MODULES if matches(module_name(f), packages)]
+
+
 def test_engine_has_no_ai_data_or_network_imports() -> None:
     # The engine works on pandas objects only; loading data is the service layer's job.
-    engine_files = [f for f in ALL_MODULES if matches(module_name(f), ("app.engine",))]
     forbidden = ("app.ai", "app.data", *NETWORK_LIBS)
-    assert violations(engine_files, forbidden) == []
+    assert violations(files_in("app.engine"), forbidden) == []
+
+
+def test_engine_imports_no_other_app_layer_or_framework() -> None:
+    # Pure functions: no web framework, ORM, schemas, settings or services.
+    forbidden = (
+        "app.api",
+        "app.services",
+        "app.db",
+        "app.schemas",
+        "app.core",
+        "fastapi",
+        "sqlalchemy",
+        "pydantic",
+    )
+    assert violations(files_in("app.engine"), forbidden) == []
+
+
+def test_routers_go_through_services() -> None:
+    # Rule 3: router -> service -> engine/data. Routers never call the engine or the data
+    # layer directly. (The chat router calls app.ai, which sits above the services.)
+    assert violations(files_in("app.api"), ("app.engine", "app.data")) == []
+
+
+def test_schemas_are_plain_models() -> None:
+    # Schemas describe I/O; they may reuse the scenario spec models in app.data.scenarios but
+    # never call the engine, services, routers or the database.
+    forbidden = ("app.engine", "app.services", "app.api", "app.db", "app.ai")
+    assert violations(files_in("app.schemas"), forbidden) == []
+
+
+def test_services_do_not_import_routers() -> None:
+    assert violations(files_in("app.services", "app.db", "app.data"), ("app.api",)) == []
+
+
+def test_ai_layer_reaches_the_engine_only_through_tools() -> None:
+    # Rule 2: app/ai/agent/tools.py is the only bridge from the AI layer to the engine (and
+    # it goes through services). No AI module calls a provider.
+    others = [f for f in files_in("app.ai") if module_name(f) != "app.ai.agent.tools"]
+    assert violations(others, ("app.engine",)) == []
+    assert violations(files_in("app.ai"), ("app.data.providers", "app.data.seed")) == []
+
+
+def test_lower_layers_never_import_the_ai_layer() -> None:
+    # Layering: api -> ai -> services -> engine/data. Nothing below the AI layer imports it.
+    lower = files_in("app.engine", "app.data", "app.db", "app.schemas", "app.services")
+    assert violations(lower, ("app.ai",)) == []
 
 
 def test_only_the_seed_path_imports_providers() -> None:

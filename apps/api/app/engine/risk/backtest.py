@@ -55,14 +55,17 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
+from app.engine.risk._validation import (
+    check_probability,
+    check_returns_frame,
+    check_var_params,
+)
 from app.engine.risk.var import (
     DEFAULT_CONFIDENCE,
     DEFAULT_SEED,
     MIN_N_SIMS,
     Method,
     VaRResult,
-    _check_params,
-    _check_returns,
     historical_var,
     monte_carlo_var,
     parametric_var,
@@ -177,11 +180,6 @@ def chi2_sf_2dof(x: float) -> float:
     return math.exp(-max(x, 0.0) / 2)
 
 
-def _check_rate(p: float) -> None:
-    if not 0 < p < 1:
-        raise ValueError(f"expected_rate must be in (0, 1), got {p}")
-
-
 # --- statistical tests ---
 
 
@@ -213,7 +211,7 @@ def kupiec_test(n: int, x: int, expected_rate: float) -> KupiecTest:
         raise ValueError(f"n must be >= 1, got {n}")
     if not 0 <= x <= n:
         raise ValueError(f"x must be in [0, n] = [0, {n}], got {x}")
-    _check_rate(expected_rate)
+    check_probability(expected_rate)
     p = expected_rate
     pi_hat = x / n
     ll_h0 = _xlogy(n - x, 1 - p) + _xlogy(x, p)
@@ -252,7 +250,7 @@ def christoffersen_test(breaches: Sequence[bool], expected_rate: float) -> Chris
     seq = np.asarray(breaches, dtype=bool)
     if seq.ndim != 1 or len(seq) < 2:
         raise ValueError(f"need a 1-d breach sequence of length >= 2, got shape {seq.shape}")
-    _check_rate(expected_rate)
+    check_probability(expected_rate)
     prev, curr = seq[:-1], seq[1:]
     n00 = int(np.sum(~prev & ~curr))
     n01 = int(np.sum(~prev & curr))
@@ -341,8 +339,8 @@ def var_backtest(
         raise ValueError(f"method must be one of {_METHODS}, got {method!r}")
     if window < 2:
         raise ValueError(f"window must be >= 2, got {window}")
-    _check_params(confidence, 1, window)
-    _check_returns(returns, window + 1)  # >= 1 test day
+    check_var_params(confidence, 1, window)
+    check_returns_frame(returns, window + 1)  # >= 1 test day
     if method == "monte_carlo" and n_sims < MIN_N_SIMS:
         raise ValueError(f"n_sims must be >= {MIN_N_SIMS}, got {n_sims}")
     realised = portfolio_returns(returns, weights)  # validates weights

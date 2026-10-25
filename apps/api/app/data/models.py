@@ -55,6 +55,10 @@ class PriceHistory:
 # are equal.
 FACTOR_COLUMNS = ("MKT_RF", "SMB", "HML", "WML", "RF")
 
+# Cache key of the IIMA daily factor file. The provider defines the same name (services may not
+# import providers); tests/data/test_factor_repository.py checks both are equal.
+DEFAULT_FACTOR_DATASET = "iima_ff4_daily"
+
 
 @dataclass(frozen=True)
 class FactorHistory:

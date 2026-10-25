@@ -431,3 +431,184 @@ why: docs/data.md, "Stress scenario windows".
 
 The in-window MDD can exceed the window loss when the portfolio first rose above its starting value
 (COVID: the stock portfolio peaked on 2020-02-13). In the 2026 window it peaked on 2026-02-11.
+
+## Portfolio optimisation (`app/engine/optimize/`)
+
+### Conventions
+
+| Item | Convention |
+|---|---|
+| Estimates | `μ = 252 · mean(r)`, `Σ = 252 · cov(r, ddof = 1)` from simple daily returns over the window (API default 1,260 rows, 5 years) |
+| Constraints | long-only, fully invested: `Σ w = 1`, `0 ≤ wᵢ ≤ cap` (cap optional, ≥ 1/n) |
+| Risk-free | as `/risk/metrics`: IIMA T-bill average over the window unless supplied |
+| Solver | exact primal active-set QP (`qp.py`), no scipy; each result carries a KKT residual |
+
+### Problems
+
+    minimum variance   min  w'Σw
+    mean-variance      max  w'μ − (γ/2) w'Σw          γ > 0, swept on a log grid
+    maximum return     max  w'μ                         greedy: fill the cap by μ
+    maximum Sharpe     max  (w'μ − rf) / √(w'Σw)        golden-section search over log γ
+    risk parity        y = argmin ½ y'Σy − (1/n) Σ ln yᵢ,  w = y / Σy    (Spinu 2013)
+
+- **Frontier.** Every mean-variance solution is efficient, and as γ falls the solution moves
+  from minimum variance to maximum return, so the γ sweep traces the long-only frontier (warm-
+  started, duplicates removed, both ends added).
+- **Maximum Sharpe.** Unimodal along a concave frontier, so a golden-section search on log γ
+  around the best swept point converges. Tested against the closed-form tangency portfolio
+  `w ∝ Σ⁻¹(μ − rf·1)` when that is long-only (agreement 1e-6 in weights, 1e-10 in Sharpe).
+- **Risk parity.** Cyclical coordinate descent with a closed-form positive root per coordinate
+  (Griveau-Billion, Richard and Roncalli 2013). Every risk share (Euler component, see risk
+  attribution) equals 1/n to 1e-9; with a diagonal Σ it reduces to inverse volatility, and with
+  two assets to inverse volatility for any correlation (both tested).
+
+### What the numbers mean, and what they do not
+
+- **Expected returns dominate mean-variance results** and are the noisiest input (Michaud 1989).
+  On the real cache over 2021-09 → 2026-10, the gold FoF's 23% average makes it the maximum-
+  return portfolio and over half of the maximum-Sharpe portfolio of the sample funds. That is
+  what the sample says, not a forecast. Risk parity needs no return estimate and is shown next
+  to it.
+- **Liquid funds are treated as cash and excluded by default** (decided 2026-10-25). Across
+  all 35 assets, the minimum-variance and maximum-Sharpe portfolios were almost entirely the
+  liquid fund: its volatility is ~0.3% a year, so a small, steady spread over the T-bill average
+  gives a Sharpe near 2. That is arithmetic, not a finding: the fund is a cash substitute, and
+  holding cash is a decision about how much risk to take, not part of choosing among risky
+  assets. `include_liquid: true` (a checkbox on the page) puts it back; the API then still warns
+  when a liquid fund is over half of either portfolio. A current portfolio that holds a liquid
+  fund is not compared while it is excluded (the response says why).
+- **Risk parity with near-cash assets** puts most of the weight in them (74% liquid fund across
+  all assets, with liquid funds included). The cap applies to the mean-variance portfolios
+  only; the API warns.
+
+## Goal planning (`app/engine/goals/`)
+
+### Monte Carlo SIP (`simulation.py`)
+
+    calibration     x_t = ln(1 + R_p,t),   m = 252·mean(x),   s = √252·sd(x)
+    monthly step    V_{k+1} = (V_k + c_k) · exp(m/12 + s/√12 · Z_k),   Z_k ~ N(0, 1)
+    contributions   c_k = SIP · (1 + step-up)^⌊k/12⌋, invested at the start of each month
+    goal            G = goal_today · (1 + inflation)^years
+    probability     P = share of paths with V_M ≥ G,   standard error √(P(1−P)/n)
+
+- **Log returns for calibration** (docs/data.md, "Return conventions"): they add over time, and
+  the median of a lump sum grows at `m`, below the arithmetic mean `m + s²/2` (volatility drag).
+- **Checks.** With `s = 0` every path equals the growing-annuity formula exactly (1e-12); for a
+  lump sum, `P(V_T ≥ G) = Φ((mT − ln(G/V₀)) / (s√T))` and the median `V₀e^{mT}` are matched
+  within 4 Monte Carlo standard errors with 200,000 paths.
+- **Inflation default 4%**: the RBI's CPI inflation target. It is an input; the result states it.
+- **Limits.** The future is assumed to look like the window (constant `m`, `s`); log returns are
+  normal (real tails are fatter); no taxes, exit loads or missed SIPs; fixed weights. The output
+  is a range under these assumptions, not a forecast.
+
+### Risk-profile questionnaire (`profile.py`)
+
+Five questions (horizon, reaction to a 20% fall, income stability, experience, goal priority),
+0–4 points each, total 0–20, mapped to five bands of equity-oriented share (0–20%, 20–40%,
+40–60%, 60–80%, 80–100%). A horizon under three years caps the band at "moderately
+conservative". The bands are this tool's **illustrative** choice; it is not a suitability
+assessment or a SEBI risk profile. The portfolio's equity-oriented share counts equity funds,
+stocks and the index fully and balanced-advantage funds at one half (a stated simplification).
+
+## Knowledge base and retrieval (`app/ai/rag/`)
+
+### Corpus
+
+13 public PDFs listed in `data/docs_manifest.json` (512 pages, 2,388 chunks as ingested on
+2026-10-25): two SEBI circulars (scheme categorisation 2017, riskometer 2020), the AMFI investor
+guide (2008), and scheme documents (SIDs, a KIM, a factsheet, a scheme summary) for 10 of the 15
+funds in the universe. `scripts/ingest_docs.py` downloads them into the gitignored `data/docs/`;
+a document is kept only if it is a PDF whose first pages contain the scheme or circular name
+given in the manifest (`expect`). Sizes, page counts and sha256 go to `data/docs/manifest.lock.json`.
+Text quality was measured per document after extraction (share of common English words, odd
+characters, empty pages); all 13 extract cleanly.
+
+**Not covered:** HDFC Flexi Cap, Kotak Mid Cap, SBI Gilt and the two balanced-advantage funds
+have no document in the corpus; questions about them return "not found in the documents".
+Several documents are older than the latest version (e.g. a 2024 SID); answers cite the document
+and page so the date is visible. The AMFI guide is from 2008 and predates the 2017
+categorisation.
+
+### Chunking and embeddings
+
+- Per page, never across pages, so every citation's page number is exact. Windows of at most
+  900 characters cut at a sentence or line end when one exists in the second half of the window,
+  with 150 characters of overlap; fragments under 80 characters are dropped.
+- Embeddings: `BAAI/bge-small-en-v1.5` (384 dimensions) through fastembed (ONNX Runtime, no
+  torch), run locally at ingest and for each query. Vectors are L2-normalised (cosine = dot).
+- Storage: Postgres `rag_documents` / `rag_chunks` with a pgvector HNSW index on cosine distance,
+  and the same data as local files (`data/docs/index/`) when no database is configured. On five
+  test questions the pgvector top-5 equalled exact search.
+
+### Retrieval modes (switchable: `RAG_MODE`, and per call in the evaluation)
+
+    dense          cosine top-k
+    hybrid         RRF over dense top-20 and BM25 top-20:  score = sum 1 / (60 + rank)
+    hybrid_rerank  hybrid top-20 re-scored by a cross-encoder (Xenova/ms-marco-MiniLM-L-6-v2)
+
+- BM25 (k1 = 1.5, b = 0.75) is implemented in `bm25.py` and tested against a hand computation.
+  It matters for exact terms (scheme names, "exit load", "riskometer") that embeddings can blur.
+- RRF uses ranks only, so the two very different score scales need no normalisation.
+- A fund filter (scheme code, resolved from the fund name the model gives) restricts every list.
+- Default on the request path: `hybrid`. The reranker costs ~1-4 s per query on CPU; whether it
+  is worth that is decided by the evaluation (Phase 9), not assumed.
+
+### Answers and citations
+
+The `search_knowledge_base` tool returns up to 4 passages (at most 700 characters each) with a
+reference `<doc_id> p.<page>`. The model must answer only from them, cite each claim as
+`[doc_id p.N]`, and say "not found in the documents" otherwise. After the answer, every bracketed
+reference is matched against the passages actually retrieved in that turn: matches become
+citation chips (title, page, source link); a reference to anything not retrieved is flagged.
+
+## Guardrails (`app/ai/guardrails.py`)
+
+Applied to every assistant answer in `agent/loop.py`; tested in `tests/ai/test_guardrails.py`.
+
+| Guardrail | Rule | Action |
+|---|---|---|
+| Numeric grounding | Every number in the answer must occur, as a value of the same kind (percent or not), in a tool output, a retrieved passage or the user's own messages. Formats are normalised (`Rs 13,843` = `13,843`, Unicode minus = `-`); signs are ignored (a "loss of 8.31%" for a P&L of `-8.31%`). Exempt: single-digit integers without a unit (list markers, "six levels") and years that appear in a source | One repair turn telling the model which numbers to remove or replace; if still ungrounded, the answer is shown with those numbers flagged as not verified |
+| Compliance | Sentences telling the user to buy, sell, hold or switch, recommending a product, promising returns or predicting prices with certainty | One repair turn; if it persists, the sentence is replaced by a notice. A disclaimer is attached to every answer |
+| Prompt injection | Retrieved PDF text is untrusted. Sentences that address an AI ("ignore previous instructions", role markers, "you are now", tool-use instructions) are removed before the model sees the passage | Removed text replaced by a marker; the answer carries a flag and the trace records it |
+| Citations | `[doc_id p.N]` references must point to passages retrieved in this turn | Valid ones become citation chips; others are flagged |
+
+Why a repair turn and not only a prompt: in a live test (2026-10-25) the model added up tool
+values itself ("roughly 62% of the portfolio's volatility") despite the rule not to compute. The
+check catches exactly that; the regression test uses that answer.
+
+Limits: grounding checks numbers, not words, so a wrong qualitative claim with no number passes
+(the evaluation measures faithfulness separately); the compliance filter is pattern-based, so
+unusual phrasings of advice can pass, and it errs on the side of not flagging informational
+sentences such as "investors should note the exit load".
+
+## Evaluation (`eval/`, `app/ai/evaluation.py`)
+
+Run with `make eval`; the latest numbers are in the README and `eval/results/summary.md`
+(the only allowed source for quoted figures). Scoring rules and their history are in
+`eval/README.md`.
+
+- **Retrieval** (49 answerable questions; gold pages computed from the PDF text, never typed):
+  hit@5 61.2% dense, 75.5% hybrid + rerank + fund filter (MRR@10 0.449 → 0.627).
+  Settings were not tuned on this set.
+- **Answers** (59 questions incl. 10 unanswerable): key facts 53.1% strict /
+  61.2% lenient; numbers grounded 98.3%; correct abstention
+  100.0%; false abstention 22.4%. Most misses are
+  retrieval misses on table rows, not invented content. The LLM judge rated every judged answer
+  faithful, so treat it as weak evidence.
+- **Tool calls** (36 prompts; scored on the first call other than `list_stress_scenarios`,
+  no answer generation): correct tool 97.2%, correct tool and arguments 88.9%. The misses: a
+  sector named "IT" / "Banking" instead of the universe's sector names (the tool rejects unknown
+  sectors and lists the valid ones, so the app can recover; the eval stops at that first
+  call); "gold +15%, equities -10%" mapped to the committed gold-rally scenario, which
+  uses different shocks (-15% / +10%), instead of a custom shock; "all 15 funds" sent as scope
+  "all". t18 accepts either valid tool (decided 2026-10-25, before this run).
+- **VaR backtest:** the twelve runs reproduce the backtest table above exactly.
+
+**Post-evaluation change (2026-10-25, not re-evaluated).** After the run above, two fixes
+aimed at the observed misses were applied: the custom-stress tool's `target` description now
+lists every sector name of the universe, and the stress tools and the system prompt tell the
+model to use the user's own shock sizes in `run_custom_stress` when they differ from an
+available scenario's. These fixes were chosen by looking at the same 36 cases, so a re-run on
+them would overstate the gain; the reported tool-call baseline stays 88.9% (the score before
+the fixes). A fair measurement needs new held-out prompts. The change also invalidates the
+cached tool-eval responses, so the next run costs tokens.

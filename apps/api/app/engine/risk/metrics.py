@@ -43,6 +43,14 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from app.engine.risk._validation import (
+    check_annual_rate,
+    check_metrics_frame,
+    check_same_index,
+    check_series,
+    check_wealth_domain,
+)
+
 TRADING_DAYS = 252
 DEFAULT_MIN_OBS = 252  # one year of trading days, as in var.py
 ZERO_TOL = 1e-12  # daily dispersion at or below this counts as zero
@@ -121,65 +129,7 @@ class PerformanceSummary:
     benchmark: BenchmarkStats | None
 
 
-# --- validation helpers ---
-
-
-def _check_min_obs(min_obs: int) -> None:
-    if min_obs < 2:
-        raise ValueError(f"min_obs must be >= 2, got {min_obs}")
-
-
-def _check_values(values: np.ndarray, n: int, min_obs: int, label: str) -> None:
-    if n == 0:
-        raise ValueError(f"{label} is empty")
-    if np.isnan(values).any():
-        raise ValueError(f"{label} contain NaN; build them with align_prices + simple_returns")
-    if not np.isfinite(values).all():
-        raise ValueError(f"{label} contain inf")
-    if n < min_obs:
-        raise ValueError(f"need at least {min_obs} return observations, got {n}")
-
-
-def _check_series(returns: pd.Series, min_obs: int, label: str = "returns") -> np.ndarray:
-    """Validate one return Series and return its values as float64."""
-    _check_min_obs(min_obs)
-    if not isinstance(returns, pd.Series):
-        raise TypeError(
-            f"{label} must be a pandas Series (one portfolio or asset); "
-            "use var.portfolio_returns for a weighted portfolio"
-        )
-    values = returns.to_numpy(dtype=float)
-    _check_values(values, len(returns), min_obs, label)
-    return values
-
-
-def _check_frame(returns: pd.DataFrame, min_obs: int) -> np.ndarray:
-    _check_min_obs(min_obs)
-    if not isinstance(returns, pd.DataFrame):
-        raise TypeError("returns must be a pandas DataFrame (columns = asset ids)")
-    if returns.shape[1] == 0:
-        raise ValueError("returns has no columns")
-    values = returns.to_numpy(dtype=float)
-    _check_values(values, len(returns), min_obs, "returns")
-    return values
-
-
-def _check_wealth_domain(values: np.ndarray) -> None:
-    if (values < -1).any():
-        raise ValueError("returns below -100% are not possible for a long position")
-
-
-def _check_rate(rate: float, label: str) -> None:
-    if not math.isfinite(rate) or rate <= -1:
-        raise ValueError(f"{label} must be a finite annual decimal > -1, got {rate}")
-
-
-def _check_same_index(returns: pd.Series, benchmark: pd.Series) -> None:
-    if not returns.index.equals(benchmark.index):
-        raise ValueError(
-            "returns and benchmark must have identical indexes (same dates, same order); "
-            "align them first"
-        )
+# --- helpers ---
 
 
 def _daily_rate(annual: float) -> float:
@@ -207,7 +157,7 @@ def annualised_volatility(returns: pd.Series, *, min_obs: int = DEFAULT_MIN_OBS)
     autocorrelation makes sqrt(252) scaling *understate* annual risk. Returns exactly 0.0
     if the daily std is <= ZERO_TOL.
     """
-    return _std(_check_series(returns, min_obs)) * _SQRT_T
+    return _std(check_series(returns, min_obs)) * _SQRT_T
 
 
 def annualised_return(returns: pd.Series, *, min_obs: int = DEFAULT_MIN_OBS) -> float:
@@ -233,8 +183,8 @@ def annualised_return(returns: pd.Series, *, min_obs: int = DEFAULT_MIN_OBS) -> 
     of return rows (trading days), not calendar time; with exactly 252 rows a year the two
     agree. Short histories are extrapolated, hence min_obs defaults to 252.
     """
-    values = _check_series(returns, min_obs)
-    _check_wealth_domain(values)
+    values = check_series(returns, min_obs)
+    check_wealth_domain(values)
     if (values == -1).any():
         return -1.0
     log_growth = float(np.log1p(values).sum())  # sum of logs: no overflow on long series
@@ -247,7 +197,7 @@ def arithmetic_annual_return(returns: pd.Series, *, min_obs: int = DEFAULT_MIN_O
     Overstates what was actually earned when returns are volatile (see
     `annualised_return`). Used as the numerator of Sharpe and in alpha.
     """
-    return float(np.mean(_check_series(returns, min_obs))) * TRADING_DAYS
+    return float(np.mean(check_series(returns, min_obs))) * TRADING_DAYS
 
 
 # --- risk-adjusted ratios ---
@@ -267,8 +217,8 @@ def downside_deviation(
     correction. `mar_annual` is required: 0.0 means "losing money", the risk-free rate
     means "underperforming cash". Output: annual decimal; 0.0 if no day is below the MAR.
     """
-    _check_rate(mar_annual, "mar_annual")
-    values = _check_series(returns, min_obs)
+    check_annual_rate(mar_annual, "mar_annual")
+    values = check_series(returns, min_obs)
     shortfall = np.minimum(values - _daily_rate(mar_annual), 0.0)
     dd = math.sqrt(float(np.mean(shortfall**2)))
     return (0.0 if dd <= ZERO_TOL else dd) * _SQRT_T
@@ -294,8 +244,8 @@ def sharpe_ratio(
     None if volatility is zero. Assumes i.i.d. returns; it treats upside and downside
     volatility alike and says nothing about tails (see `sortino_ratio`, drawdown, VaR).
     """
-    _check_rate(risk_free_annual, "risk_free_annual")
-    values = _check_series(returns, min_obs)
+    check_annual_rate(risk_free_annual, "risk_free_annual")
+    values = check_series(returns, min_obs)
     sd = _std(values)
     if sd == 0.0:
         return None
@@ -347,8 +297,8 @@ def drawdown_series(returns: pd.Series, *, min_obs: int = DEFAULT_MIN_OBS) -> pd
     Values within DD_TOL of the peak are set to exactly 0 (a return to the old peak can
     otherwise be 1e-16 short in floating point). Output: Series named "drawdown".
     """
-    values = _check_series(returns, min_obs)
-    _check_wealth_domain(values)
+    values = check_series(returns, min_obs)
+    check_wealth_domain(values)
     return pd.Series(_drawdown_values(values), index=returns.index, name="drawdown")
 
 
@@ -362,8 +312,8 @@ def drawdown_episodes(
     recovery the day after the run (if the series gets back to the peak). An episode still
     underwater at the last observation has recovery_date = None.
     """
-    values = _check_series(returns, min_obs)
-    _check_wealth_domain(values)
+    values = check_series(returns, min_obs)
+    check_wealth_domain(values)
     dd = _drawdown_values(values)
     index = returns.index
     n = len(dd)
@@ -422,8 +372,8 @@ def drawdown_stats(returns: pd.Series, *, min_obs: int = DEFAULT_MIN_OBS) -> Dra
 
 def max_drawdown(returns: pd.Series, *, min_obs: int = DEFAULT_MIN_OBS) -> float:
     """Maximum drawdown as a positive fraction (0.0 if never below a previous peak)."""
-    values = _check_series(returns, min_obs)
-    _check_wealth_domain(values)
+    values = check_series(returns, min_obs)
+    check_wealth_domain(values)
     return float(-_drawdown_values(values).min())
 
 
@@ -466,10 +416,10 @@ def benchmark_stats(
     Inputs: two simple daily return Series with identical indexes; risk_free_annual an
     annual decimal (required). Output: annualised decimals; None where undefined.
     """
-    _check_rate(risk_free_annual, "risk_free_annual")
-    p = _check_series(returns, min_obs)
-    b = _check_series(benchmark, min_obs, label="benchmark")
-    _check_same_index(returns, benchmark)
+    check_annual_rate(risk_free_annual, "risk_free_annual")
+    p = check_series(returns, min_obs)
+    b = check_series(benchmark, min_obs, label="benchmark")
+    check_same_index(returns, benchmark)
     rf_d = _daily_rate(risk_free_annual)
 
     sd_p, sd_b = _std(p), _std(b)
@@ -511,7 +461,7 @@ def correlation_matrix(returns: pd.DataFrame, *, min_obs: int = DEFAULT_MIN_OBS)
     (e.g. the gold FoFs' NAV timing, docs/data.md), and they are averages over the window:
     in sell-offs correlations tend to rise exactly when diversification is needed.
     """
-    values = _check_frame(returns, min_obs)
+    values = check_metrics_frame(returns, min_obs)
     centred = values - values.mean(axis=0)
     sd = np.sqrt((centred**2).sum(axis=0) / (len(values) - 1))
     ok = sd > ZERO_TOL
@@ -536,7 +486,7 @@ def performance_summary(
 ) -> PerformanceSummary:
     """All metrics for one return series. Sortino uses MAR = risk_free_annual, so Sharpe
     and Sortino share a numerator. `benchmark` (same index) adds BenchmarkStats."""
-    _check_series(returns, min_obs)
+    check_series(returns, min_obs)
     rf = risk_free_annual
     return PerformanceSummary(
         start=returns.index[0],
@@ -572,7 +522,7 @@ def asset_metrics(
     beta, alpha, correlation, tracking_error, information_ratio. Undefined ratios are NaN.
     Same conventions as `performance_summary` (Sortino MAR = risk_free_annual).
     """
-    _check_frame(returns, min_obs)
+    check_metrics_frame(returns, min_obs)
     rows = {}
     for col in returns.columns:
         s = performance_summary(

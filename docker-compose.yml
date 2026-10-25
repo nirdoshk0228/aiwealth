@@ -1,3 +1,7 @@
+# Optional local setup: a pgvector-enabled Postgres for development without Neon.
+# The project runs on a hosted Neon Postgres by default (DATABASE_URL in .env); Docker is not
+# required. To use this instead, set
+#   DATABASE_URL=postgresql://aiwealth:<POSTGRES_PASSWORD>@localhost:5432/aiwealth
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -17,21 +21,5 @@ services:
       retries: 10
     restart: unless-stopped
 
-  redis:
-    image: redis:7-alpine
-    container_name: aiwealth-redis
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    restart: unless-stopped
-
 volumes:
   postgres_data:
-  redis_data:

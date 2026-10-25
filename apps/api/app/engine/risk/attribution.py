@@ -57,15 +57,9 @@ from statistics import NormalDist
 import numpy as np
 import pandas as pd
 
+from app.engine.risk._validation import check_var_params, prepare_weighted
 from app.engine.risk.metrics import TRADING_DAYS, ZERO_TOL
-from app.engine.risk.var import (
-    DEFAULT_CONFIDENCE,
-    DEFAULT_MIN_OBS,
-    _check_params,
-    _check_returns,
-    _weights_vector,
-    scale_to_horizon,
-)
+from app.engine.risk.var import DEFAULT_CONFIDENCE, DEFAULT_MIN_OBS, scale_to_horizon
 
 _SQRT_T = math.sqrt(TRADING_DAYS)
 _STD_NORMAL = NormalDist()
@@ -145,16 +139,7 @@ def _frame(rows: tuple[object, ...]) -> pd.DataFrame:
     return df.set_index("asset_id")
 
 
-# --- validation and estimation ---
-
-
-def _prepare(
-    returns: pd.DataFrame, weights: Mapping[str, float] | pd.Series, min_obs: int
-) -> tuple[pd.DataFrame, np.ndarray]:
-    if min_obs < 2:
-        raise ValueError(f"min_obs must be >= 2, got {min_obs}")
-    _check_returns(returns, min_obs)
-    return _weights_vector(returns, weights)
+# --- helpers ---
 
 
 def _ids(weights: Mapping[str, float] | pd.Series) -> list[str]:
@@ -221,7 +206,7 @@ def volatility_attribution(
     components for hedges, local meaning of the marginal). Raises ValueError if the
     portfolio's volatility is zero.
     """
-    sub, w = _prepare(returns, weights, min_obs)
+    sub, w = prepare_weighted(returns, weights, min_obs)
     sigma_d, marginal_d, component_d = euler_contributions(sub.cov(ddof=1).to_numpy(), w)
     rows = tuple(
         AssetVolContribution(
@@ -269,8 +254,8 @@ def parametric_var_attribution(
     volatility shares; at a 1-day horizon the difference is usually small. Historical and
     Monte Carlo VaR do not decompose in closed form (see the module docstring).
     """
-    _check_params(confidence, horizon_days, min_obs)
-    sub, w = _prepare(returns, weights, min_obs)
+    check_var_params(confidence, horizon_days, min_obs)
+    sub, w = prepare_weighted(returns, weights, min_obs)
     mu = sub.mean().to_numpy()
     _, marginal, _ = euler_contributions(sub.cov(ddof=1).to_numpy(), w)
     z = _STD_NORMAL.inv_cdf(confidence)
@@ -328,7 +313,7 @@ def diversification_ratio(
     hedged; the ratio is undefined), following metrics.py's rule for undefined ratios.
     Assumptions: Sigma_hat is the true covariance, as elsewhere in this module.
     """
-    sub, w = _prepare(returns, weights, min_obs)
+    sub, w = prepare_weighted(returns, weights, min_obs)
     cov = sub.cov(ddof=1).to_numpy()
     sigma_p = math.sqrt(max(float(w @ cov @ w), 0.0))
     if sigma_p <= ZERO_TOL:

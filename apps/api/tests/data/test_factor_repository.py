@@ -58,6 +58,13 @@ def test_engine_and_data_layer_agree_on_factor_columns() -> None:
     assert align.FACTOR_COLUMNS == FACTOR_COLUMNS
 
 
+def test_default_factor_dataset_matches_the_provider() -> None:
+    from app.data.models import DEFAULT_FACTOR_DATASET
+    from app.data.providers.iima_factors import DATASET as PROVIDER_DATASET
+
+    assert DEFAULT_FACTOR_DATASET == PROVIDER_DATASET == "iima_ff4_daily"
+
+
 def test_round_trip_is_exact_including_nan(repo: ParquetFactorRepository) -> None:
     repo.save(history())
     loaded = repo.load()

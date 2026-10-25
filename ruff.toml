@@ -1,0 +1,10 @@
+# Lint config for repo-level Python (scripts/, eval/): the API project's rules, plus one relaxation.
+extend = "apps/api/pyproject.toml"
+
+[lint.per-file-ignores]
+# Markdown table rows in the report writer are long f-strings; wrapping them hurts readability.
+"eval/run_eval.py" = ["E501"]
+
+[lint.isort]
+known-first-party = ["app"]
+known-third-party = ["alembic"]

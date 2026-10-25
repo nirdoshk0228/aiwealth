@@ -366,3 +366,17 @@ The replay is therefore correct for *these* funds but must not be read as "debt 
 (corporate bond −2%, liquid −0.5%, gilt 0%) that are stated assumptions, because our cache has no
 credit loss to calibrate them from. Its equity leg (MKT_RF −5%) matches the Nifty fall over the
 fortnight of the DHFL crash (2018-09-14 → 2018-09-28: −5.08%).
+
+## Documents for the assistant (knowledge base)
+
+13 public PDFs (SEBI circulars on scheme categorisation and the riskometer, the AMFI investor
+guide, and scheme documents for 10 of the 15 funds) are listed with their source URLs in
+[`data/docs_manifest.json`](../data/docs_manifest.json). `scripts/ingest_docs.py` downloads them
+into the gitignored `data/docs/` and keeps a document only if the PDF names the expected scheme
+or circular in its first pages; sizes and sha256 are recorded in `data/docs/manifest.lock.json`.
+The PDFs are never committed.
+
+Limitations: five funds (HDFC Flexi Cap, Kotak Mid Cap, SBI Gilt and the two balanced-advantage
+funds) have no document; some documents are not the latest version (e.g. 2024 SIDs, a 2008 AMFI
+guide), and answers cite document and page so the source date is visible. Chunking, embeddings
+and retrieval: [methodology.md](methodology.md#knowledge-base-and-retrieval-appairag).

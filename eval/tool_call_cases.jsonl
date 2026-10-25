@@ -1,0 +1,36 @@
+{"id": "t01", "prompt": "What is my Value-at-Risk?", "expect_tool": "get_risk_summary", "expect_args": {}}
+{"id": "t02", "prompt": "How much could I lose in a single day at 99% confidence?", "expect_tool": "get_risk_summary", "expect_args": {"confidence": 0.99}}
+{"id": "t03", "prompt": "What is my 10-day VaR at 95%?", "expect_tool": "get_risk_summary", "expect_args": {"horizon_days": 10}}
+{"id": "t04", "prompt": "What's the Sharpe ratio of my portfolio?", "expect_tool": "get_risk_summary", "expect_args": {}}
+{"id": "t05", "prompt": "What was the maximum drawdown of my portfolio?", "expect_tool": "get_risk_summary", "expect_args": {}}
+{"id": "t06", "prompt": "How volatile has my portfolio been over the last year only?", "expect_tool": "get_risk_summary", "expect_args": {"lookback_days": 252}}
+{"id": "t07", "prompt": "Which of my holdings adds the most risk?", "expect_tool": "get_risk_contributions", "expect_args": {}}
+{"id": "t08", "prompt": "How well diversified is my portfolio?", "expect_tool": "get_risk_contributions", "expect_args": {}}
+{"id": "t09", "prompt": "What is my portfolio's exposure to the market, size, value and momentum factors?", "expect_tool": "get_factor_exposures", "expect_args": {}}
+{"id": "t10", "prompt": "Is my portfolio tilted towards small caps in factor terms?", "expect_tool": "get_factor_exposures", "expect_args": {}}
+{"id": "t11", "prompt": "Has my VaR model been reliable in the past? How often was it breached?", "expect_tool": "backtest_var", "expect_args": {}}
+{"id": "t12", "prompt": "Run a parametric VaR backtest at 95% confidence.", "expect_tool": "backtest_var", "expect_args": {"method": "parametric", "confidence": 0.95}}
+{"id": "t13", "prompt": "Which stress scenarios can I run?", "expect_tool": "list_stress_scenarios", "expect_args": {}}
+{"id": "t14", "prompt": "How would my portfolio have done in the COVID crash of 2020?", "expect_tool": "run_stress_scenario", "expect_args": {"scenario_id": "covid_crash_2020"}}
+{"id": "t15", "prompt": "Replay demonetisation on my portfolio.", "expect_tool": "run_stress_scenario", "expect_args": {"scenario_id": "demonetisation_2016"}}
+{"id": "t16", "prompt": "What would the 2024 election results day have done to my portfolio?", "expect_tool": "run_stress_scenario", "expect_args": {"scenario_id": "election_results_2024"}}
+{"id": "t17", "prompt": "Run the credit event scenario.", "expect_tool": "run_stress_scenario", "expect_args": {"scenario_id": "credit_event"}}
+{"id": "t18", "prompt": "How exposed am I to an IT sector shock scenario?", "expect_tool": "run_stress_scenario", "expect_args": {"scenario_id": "it_sector_shock"}, "also_accept": [{"tool": "run_custom_stress", "args": {"direct_shocks.0.target": "Information Technology"}}], "grading_note": "Ambiguous by design (decided 2026-10-25): the committed it_sector_shock scenario and a custom IT-sector shock both answer it; either counts."}
+{"id": "t19", "prompt": "What if the stock market falls 20%?", "expect_tool": "run_custom_stress", "expect_args": {"factor_shocks.MKT_RF": -0.2}}
+{"id": "t20", "prompt": "What happens to my portfolio if bank and financial stocks drop 10%?", "expect_tool": "run_custom_stress", "expect_args": {"direct_shocks.0.target": "Financial Services", "direct_shocks.0.shock": -0.1}}
+{"id": "t21", "prompt": "Suppose gold rises 15% while equities fall 10%. What is the impact?", "expect_tool": "run_custom_stress", "expect_args": {"factor_shocks.MKT_RF": -0.1}}
+{"id": "t22", "prompt": "What would a minimum-variance version of my portfolio look like?", "expect_tool": "optimize_portfolio", "expect_args": {}}
+{"id": "t23", "prompt": "Show me risk parity weights for my holdings.", "expect_tool": "optimize_portfolio", "expect_args": {}}
+{"id": "t24", "prompt": "Optimise across all 15 funds with at most 25% in any single fund.", "expect_tool": "optimize_portfolio", "expect_args": {"scope": "funds", "max_weight": 0.25}}
+{"id": "t25", "prompt": "If I invest 20,000 rupees a month for 15 years, how likely am I to reach 1 crore?", "expect_tool": "simulate_goal", "expect_args": {"monthly_sip": 20000, "years": 15, "goal_amount": 10000000}}
+{"id": "t26", "prompt": "Can a 10,000 rupee monthly SIP grow to 50 lakh in 20 years?", "expect_tool": "simulate_goal", "expect_args": {"monthly_sip": 10000, "years": 20, "goal_amount": 5000000}}
+{"id": "t27", "prompt": "What is the exit load of the Axis Liquid Fund?", "expect_tool": "search_knowledge_base", "expect_args": {}}
+{"id": "t28", "prompt": "What are the risk levels of the SEBI riskometer?", "expect_tool": "search_knowledge_base", "expect_args": {}}
+{"id": "t29", "prompt": "How does SEBI define a mid cap company?", "expect_tool": "search_knowledge_base", "expect_args": {}}
+{"id": "t30", "prompt": "What is the benchmark of the Nippon India Small Cap Fund?", "expect_tool": "search_knowledge_base", "expect_args": {}}
+{"id": "t31", "prompt": "What is the minimum SIP in the Mirae Asset Large Cap Fund?", "expect_tool": "search_knowledge_base", "expect_args": {}}
+{"id": "t32", "prompt": "What is my CVaR at 95%?", "expect_tool": "get_risk_summary", "expect_args": {"confidence": 0.95}}
+{"id": "t33", "prompt": "What is my beta to the Nifty 50?", "expect_tool": "get_risk_summary", "expect_args": {}}
+{"id": "t34", "prompt": "Explain what VaR means in simple words.", "expect_tool": null, "expect_args": {}}
+{"id": "t35", "prompt": "Hi! What can you help me with?", "expect_tool": null, "expect_args": {}}
+{"id": "t36", "prompt": "What does the Nippon India Gold Savings Fund invest in?", "expect_tool": "search_knowledge_base", "expect_args": {}}

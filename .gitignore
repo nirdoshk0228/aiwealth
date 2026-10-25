@@ -230,3 +230,10 @@ next-env.d.ts
 # Evaluation outputs and downloaded raw data
 eval/results/
 data/raw/
+
+# AI trace logs and local caches (LLM responses for eval, embedding models)
+logs/
+.cache/
+
+# Downloaded documents for the knowledge base (never committed; see data/docs_manifest.json)
+data/docs/

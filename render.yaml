@@ -1,0 +1,30 @@
+# Render Blueprint for the API (https://render.com/docs/blueprint-spec).
+# The database is Neon (DATABASE_URL), not a Render database. Secrets are entered in the Render
+# dashboard (sync: false) and never committed. See BUILD_LOG / README "Deployment".
+services:
+  - type: web
+    name: aiwealth-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+      - key: MARKET_DATA_BACKEND
+        value: postgres
+      - key: RAG_BACKEND
+        value: postgres
+      - key: RAG_MODE
+        value: hybrid

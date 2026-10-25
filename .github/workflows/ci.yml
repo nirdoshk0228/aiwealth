@@ -28,5 +28,47 @@ jobs:
       - name: Ruff format check
         run: ruff format --check .
 
+      # DATABASE_URL is not set in CI, so tests marked `postgres` are skipped.
       - name: Pytest
         run: pytest
+
+      - name: OpenAPI spec for the web client is up to date
+        working-directory: .
+        run: python scripts/export_openapi.py --check
+
+      - name: Lint repo-level scripts and eval
+        working-directory: .
+        run: ruff check scripts eval && ruff format --check scripts eval
+
+  web:
+    name: Web lint, types, tests and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Generated API types match openapi.json
+        run: npm run gen:api && git diff --exit-code src/lib/api/schema.ts
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build

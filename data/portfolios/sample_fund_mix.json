@@ -1,0 +1,18 @@
+{
+  "id": "sample_fund_mix",
+  "name": "Sample: mixed mutual fund portfolio",
+  "description": "An illustrative mix of equity, hybrid, debt and gold funds from the platform's universe, used for the no-login demo and API tests. The weights were chosen to exercise every asset type; they are not a recommendation.",
+  "portfolio": {
+    "portfolio_value": 1000000,
+    "holdings": [
+      { "asset_id": "mutual_fund:122639", "weight": 0.20 },
+      { "asset_id": "mutual_fund:120586", "weight": 0.15 },
+      { "asset_id": "mutual_fund:118989", "weight": 0.10 },
+      { "asset_id": "mutual_fund:118778", "weight": 0.10 },
+      { "asset_id": "mutual_fund:120377", "weight": 0.10 },
+      { "asset_id": "mutual_fund:119533", "weight": 0.15 },
+      { "asset_id": "mutual_fund:119707", "weight": 0.10 },
+      { "asset_id": "mutual_fund:118663", "weight": 0.10 }
+    ]
+  }
+}

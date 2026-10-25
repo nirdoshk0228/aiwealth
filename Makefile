@@ -3,7 +3,7 @@
 
 API_DIR := apps/api
 
-.PHONY: install lint format test api seed infra-up infra-down eval
+.PHONY: install lint format test api seed migrate seed-db ingest-docs infra-up infra-down eval
 
 install:
 	cd $(API_DIR) && python -m pip install -e ".[dev]"
@@ -23,11 +23,24 @@ api:
 seed:
 	python scripts/seed_data.py
 
+migrate:
+	cd $(API_DIR) && alembic upgrade head
+
+seed-db:
+	python scripts/seed_db.py
+
+# Download, verify, chunk and embed the knowledge-base documents (add --db for Postgres).
+ingest-docs:
+	python scripts/ingest_docs.py --db
+
+# Optional local Postgres (Neon is the default; see README).
 infra-up:
-	docker compose up -d postgres redis
+	docker compose up -d postgres
 
 infra-down:
 	docker compose down
 
+# Retrieval, answers, tool calls and VaR backtest -> eval/results/ (LLM calls cached in .cache/llm).
 eval:
-	@echo "Evaluation suite not implemented yet (Phase 9)."
+	python eval/build_golden.py
+	python eval/run_eval.py --answers-mode hybrid_rerank --judge

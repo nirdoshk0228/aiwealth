@@ -1,0 +1,20 @@
+{
+  "id": "sample_stock_basket",
+  "name": "Sample: ten-stock equal-weight basket",
+  "description": "An illustrative equal-weight basket of ten Nifty 50 stocks from ten industries in the platform's universe, used for the demo and API tests. Not a recommendation.",
+  "portfolio": {
+    "portfolio_value": 500000,
+    "holdings": [
+      { "asset_id": "equity:HDFCBANK", "weight": 0.10 },
+      { "asset_id": "equity:TCS", "weight": 0.10 },
+      { "asset_id": "equity:RELIANCE", "weight": 0.10 },
+      { "asset_id": "equity:NTPC", "weight": 0.10 },
+      { "asset_id": "equity:HINDUNILVR", "weight": 0.10 },
+      { "asset_id": "equity:MARUTI", "weight": 0.10 },
+      { "asset_id": "equity:SUNPHARMA", "weight": 0.10 },
+      { "asset_id": "equity:TATASTEEL", "weight": 0.10 },
+      { "asset_id": "equity:BHARTIARTL", "weight": 0.10 },
+      { "asset_id": "equity:LT", "weight": 0.10 }
+    ]
+  }
+}

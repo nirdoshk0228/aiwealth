@@ -1,0 +1,109 @@
+{
+  "note": "Public documents for the assistant's knowledge base. PDFs are downloaded by scripts/ingest_docs.py into data/docs/ (gitignored) and never committed. Each entry is kept only if the download is a PDF whose first pages contain `expect`; results (sha256, pages, verified) are written to data/docs/manifest.lock.json. URLs were found on 2026-10-25 through searches of sebi.gov.in, portal.amfiindia.com and the AMCs' sites.",
+  "documents": [
+    {
+      "id": "sebi_categorisation_2017",
+      "title": "SEBI circular: Categorization and Rationalization of Mutual Fund Schemes (6 Oct 2017)",
+      "doc_type": "regulation",
+      "fund_code": null,
+      "url": "https://www.amfiindia.com/Themes/Theme1/downloads/1507291273374.pdf",
+      "expect": "Categorization and Rationalization"
+    },
+    {
+      "id": "sebi_riskometer_2020",
+      "title": "SEBI circular: Product labeling in mutual fund schemes - Risk-o-meter (5 Oct 2020)",
+      "doc_type": "regulation",
+      "fund_code": null,
+      "url": "https://www.sebi.gov.in/sebi_data/attachdocs/oct-2020/1602580413614.pdf",
+      "expect": "Risk-o-meter"
+    },
+    {
+      "id": "amfi_investor_guide",
+      "title": "AMFI investor guide: Making Mutual Funds Work for You (3rd edition, 2008)",
+      "doc_type": "investor_education",
+      "fund_code": null,
+      "url": "https://portal.amfiindia.com/spages/InvestorGuide.pdf",
+      "expect": "Mutual Fund"
+    },
+    {
+      "id": "sid_ppfas_flexi_cap",
+      "title": "Parag Parikh Flexi Cap Fund: Scheme Information Document (SEBI copy, 2025)",
+      "doc_type": "sid",
+      "fund_code": "122639",
+      "url": "https://www.sebi.gov.in/sebi_data/mutualfundfile/jul-2025/1751948606387.pdf",
+      "expect": "Parag Parikh Flexi Cap Fund"
+    },
+    {
+      "id": "sid_nippon_small_cap",
+      "title": "Nippon India Small Cap Fund: Scheme Information Document (AMFI copy)",
+      "doc_type": "sid",
+      "fund_code": "118778",
+      "url": "https://portal.amfiindia.com/spages/4761.pdf",
+      "expect": "Nippon India Small Cap Fund"
+    },
+    {
+      "id": "sid_sbi_small_cap",
+      "title": "SBI Small Cap Fund: Scheme Information Document (AMFI copy)",
+      "doc_type": "sid",
+      "fund_code": "125497",
+      "url": "https://portal.amfiindia.com/spages/7632.pdf",
+      "expect": "SBI Small Cap Fund"
+    },
+    {
+      "id": "sid_axis_liquid",
+      "title": "Axis Liquid Fund: Scheme Information Document (SEBI copy, Dec 2024)",
+      "doc_type": "sid",
+      "fund_code": "120389",
+      "url": "https://www.sebi.gov.in/sebi_data/mutualfundfile/dec-2024/1733718732052.pdf",
+      "expect": "Axis Liquid Fund"
+    },
+    {
+      "id": "factsheet_hdfc_mid_cap",
+      "title": "HDFC Mid Cap Fund: Fund Facts (July 2026)",
+      "doc_type": "factsheet",
+      "fund_code": "118989",
+      "url": "https://files.hdfcfund.com/s3fs-public/Others/2026-07/Fund%20Facts%20-%20HDFC%20Mid-Cap%20Fund_July%2026.pdf",
+      "expect": "HDFC Mid Cap Fund"
+    },
+    {
+      "id": "sid_mirae_large_cap",
+      "title": "Mirae Asset Large Cap Fund: Scheme Information Document (21 Nov 2025)",
+      "doc_type": "sid",
+      "fund_code": "118825",
+      "url": "https://www.miraeassetmf.co.in/docs/default-source/sid/sid-mirae-asset-largecap-fund_21112025.pdf",
+      "expect": "Mirae Asset Large"
+    },
+    {
+      "id": "sid_kotak_flexicap",
+      "title": "Kotak Flexicap Fund: Scheme Information Document (SEBI copy, Feb 2025)",
+      "doc_type": "sid",
+      "fund_code": "120166",
+      "url": "https://www.sebi.gov.in/sebi_data/mutualfundfile/feb-2025/1739339464536.pdf",
+      "expect": "Kotak Flexicap Fund"
+    },
+    {
+      "id": "kim_absl_corporate_bond",
+      "title": "Aditya Birla Sun Life Corporate Bond Fund: Key Information Memorandum (Sep 2026)",
+      "doc_type": "kim",
+      "fund_code": "119533",
+      "url": "https://mutualfund.adityabirlacapital.com/-/media/bsl/files/resources/forms/applicationforms/kim----aditya-birla-sun-life-corporate-bond-fund-300926.pdf",
+      "expect": "Corporate Bond Fund"
+    },
+    {
+      "id": "sid_nippon_gold_savings",
+      "title": "Nippon India Gold Savings Fund: Scheme Information Document (SEBI copy, 2024)",
+      "doc_type": "sid",
+      "fund_code": "118663",
+      "url": "https://www.sebi.gov.in/sebi_data/mutualfundfile/jul-2024/1720774934366.pdf",
+      "expect": "Gold Savings Fund"
+    },
+    {
+      "id": "ssd_icici_large_cap",
+      "title": "ICICI Prudential Large Cap Fund: Scheme Summary Document (AMFI copy)",
+      "doc_type": "scheme_summary",
+      "fund_code": "120586",
+      "url": "https://portal.amfiindia.com/spages/SSD_3445.pdf",
+      "expect": "ICICI Prudential Large Cap Fund"
+    }
+  ]
+}

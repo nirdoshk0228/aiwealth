@@ -17,6 +17,15 @@ dependencies = [
     "pandas",      # time-series alignment and returns
     "pyarrow",     # Parquet cache
     "yfinance",    # NSE stocks (.NS) and Nifty 50 (^NSEI)
+    # Phase 4 API layer
+    "sqlalchemy>=2",      # ORM; Postgres in dev/prod, SQLite in unit tests
+    "psycopg[binary]>=3", # Postgres driver (binary wheel: no libpq build needed)
+    "alembic",            # schema migrations
+    "pgvector",           # SQLAlchemy Vector type for pgvector (Phase 8 embeddings)
+    "pyjwt",              # JWT access tokens (passwords use stdlib hashlib.scrypt)
+    # Phase 8 knowledge base
+    "pypdf",              # PDF text per page (pure Python)
+    "fastembed",          # local ONNX embeddings + cross-encoder reranker, no torch
 ]
 
 [project.optional-dependencies]
@@ -35,6 +44,13 @@ line-length = 100
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
 
+[tool.ruff.lint.isort]
+# The local alembic/ folder holds migrations; the package of that name is third-party.
+known-third-party = ["alembic"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = [
+    "postgres: needs a real Postgres (DATABASE_URL); skipped when it is not set",
+]

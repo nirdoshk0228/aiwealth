@@ -42,13 +42,16 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
+# MAX_HORIZON_DAYS and WEIGHT_SUM_TOL are re-exported: tests and app.engine.stress import them here.
+from app.engine.risk._validation import MAX_HORIZON_DAYS as MAX_HORIZON_DAYS
+from app.engine.risk._validation import WEIGHT_SUM_TOL as WEIGHT_SUM_TOL
+from app.engine.risk._validation import check_returns_frame, check_var_params, weights_vector
+
 DEFAULT_CONFIDENCE = 0.95
 DEFAULT_MIN_OBS = 252  # one year of trading days
 DEFAULT_N_SIMS = 100_000
 DEFAULT_SEED = 0
-MAX_HORIZON_DAYS = 20  # about one trading month; sqrt-time scaling degrades beyond that
 MIN_N_SIMS = 1_000
-WEIGHT_SUM_TOL = 1e-8
 
 Method = Literal["historical", "parametric", "monte_carlo"]
 _STD_NORMAL = NormalDist()
@@ -68,59 +71,6 @@ class VaRResult:
     seed: int | None = None  # monte_carlo only
 
 
-# --- validation helpers ---
-
-
-def _check_params(confidence: float, horizon_days: int, min_obs: int) -> None:
-    if not 0.5 < confidence < 1:
-        raise ValueError(f"confidence must be in (0.5, 1), got {confidence}")
-    if not 1 <= horizon_days <= MAX_HORIZON_DAYS:
-        raise ValueError(
-            f"horizon_days must be in [1, {MAX_HORIZON_DAYS}], got {horizon_days} "
-            "(square-root-of-time scaling is not reliable for longer horizons)"
-        )
-    if min_obs < 2:
-        raise ValueError(f"min_obs must be >= 2, got {min_obs}")
-
-
-def _check_returns(returns: pd.DataFrame, min_obs: int) -> None:
-    if not isinstance(returns, pd.DataFrame):
-        raise TypeError("returns must be a pandas DataFrame (columns = asset ids)")
-    if returns.empty:
-        raise ValueError("returns is empty")
-    values = returns.to_numpy(dtype=float)
-    if np.isnan(values).any():
-        raise ValueError("returns contain NaN; build them with align_prices + simple_returns")
-    if not np.isfinite(values).all():
-        raise ValueError("returns contain inf")
-    if len(returns) < min_obs:
-        raise ValueError(f"need at least {min_obs} return observations, got {len(returns)}")
-
-
-def _weights_vector(
-    returns: pd.DataFrame, weights: Mapping[str, float] | pd.Series
-) -> tuple[pd.DataFrame, np.ndarray]:
-    """Select the weighted columns and return (sub-frame, weight array in column order).
-
-    Columns without a weight are ignored, so the whole universe frame can be passed.
-    """
-    w = pd.Series(weights, dtype=float)
-    if w.empty:
-        raise ValueError("weights is empty")
-    if not w.index.is_unique:
-        raise ValueError(f"duplicate asset ids in weights: {sorted(w.index[w.index.duplicated()])}")
-    missing = [k for k in w.index if k not in returns.columns]
-    if missing:
-        raise ValueError(f"weights reference assets not in returns: {missing}")
-    if not np.isfinite(w.to_numpy()).all():
-        raise ValueError("weights must be finite")
-    total = float(w.sum())
-    if abs(total - 1.0) > WEIGHT_SUM_TOL:
-        raise ValueError(f"weights must sum to 1, got {total:.10f}")
-    sub = returns.loc[:, list(w.index)]
-    return sub, w.to_numpy()
-
-
 def _prepare(
     returns: pd.DataFrame,
     weights: Mapping[str, float] | pd.Series,
@@ -128,9 +78,9 @@ def _prepare(
     horizon_days: int,
     min_obs: int,
 ) -> tuple[pd.DataFrame, np.ndarray]:
-    _check_params(confidence, horizon_days, min_obs)
-    _check_returns(returns, min_obs)
-    return _weights_vector(returns, weights)
+    check_var_params(confidence, horizon_days, min_obs)
+    check_returns_frame(returns, min_obs)
+    return weights_vector(returns, weights)
 
 
 # --- shared building blocks ---
@@ -200,8 +150,8 @@ def portfolio_returns(returns: pd.DataFrame, weights: Mapping[str, float] | pd.S
     (finite, summing to 1; ids matched by label, not position). Columns of `returns`
     without a weight are ignored. Returns a Series on the same index, named "portfolio".
     """
-    _check_returns(returns, min_obs=1)
-    sub, w = _weights_vector(returns, weights)
+    check_returns_frame(returns, min_obs=1)
+    sub, w = weights_vector(returns, weights)
     return pd.Series(sub.to_numpy(dtype=float) @ w, index=returns.index, name="portfolio")
 
 
