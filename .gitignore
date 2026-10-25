@@ -14,8 +14,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to the root: an unanchored lib/ also ignored apps/web/src/lib (web source).
+/lib/
+/lib64/
 parts/
 sdist/
 var/
